@@ -292,7 +292,7 @@
 
       const team = toArr(raw.team).map(function (m, idx) {
         if (typeof m === "string") return { name: m, bed: "G" + (idx + 1), inRoom: true, alive: true, hp: 100, maxHp: 100 };
-        return toObj(m, { name: "Thành viên " + (idx + 1), bed: "G" + (idx + 1), inRoom: true, alive: true, hp: 100, maxHp: 100, role: "Học sinh" });
+        return toObj(m, { name: "Thành viên " + (idx + 1), bed: "G" + (idx + 1), inRoom: true, alive: true, hp: 100, maxHp: 100, role: "Sinh viên" });
       });
 
       const exam = toObj(raw.exam, {
@@ -360,7 +360,7 @@
       // ==========================================================
       // BRANCH 2: FULL INTERACTIVE SMARTPHONE (view: "full")
       // ==========================================================
-      const modeLabels = { pre: "Tiền trò chơi", temp: "Học sinh tạm thời", official: "Học sinh chính thức" };
+      const modeLabels = { pre: "Tiền trò chơi", temp: "Sinh viên tạm thời", official: "Sinh viên chính thức" };
       const zCodes = { g: "Xanh lá • An toàn", y: "Vàng • Dị thường", r: "Đỏ • Xâm nhập!" };
       const mapZones = [
         { key: "door", name: "🚪 Cửa chính", cls: "" },
@@ -404,7 +404,7 @@
                   <span class="d-call ${callOff ? "off" : ""}" data-call="${esc(m.name)}">📞</span>
                 </div>
                 <div style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:4px;">
-                  <span>Vai trò: ${esc(m.role || "Học sinh")}</span>
+                  <span>Vai trò: ${esc(m.role || "Sinh viên")}</span>
                   <span style="font-family:var(--mono);">${alive ? esc(m.hp + "/" + (m.maxHp || 100)) : "ĐÃ MẤT"}</span>
                 </div>
                 <div class="d-bar"><div class="d-fill ${bCls}" style="width:${alive ? p : 0}%;"></div></div>
@@ -506,7 +506,7 @@
                 <button class="d-nav-btn ${initTab === "skill" ? "active" : ""}" data-tab="skill"><span>✨ Đạo cụ / Dị năng</span><span class="d-nav-tag">03</span></button>
                 <button class="d-nav-btn ${initTab === "body" ? "active" : ""}" data-tab="body"><span>🩺 Thông tin cơ thể</span><span class="d-nav-tag">04</span></button>
                 <button class="d-nav-btn ${isOfficial ? (initTab === "help" ? "active" : "") : "locked"}" data-tab="help"><span>📖 Giải đáp thắc mắc</span><span class="d-nav-tag">${isOfficial ? "05" : "🔒"}</span></button>
-                <button class="d-nav-btn ${isOfficial ? (initTab === "shop" ? "active" : "") : "locked"}" data-tab="shop"><span>🛒 Cửa hàng học sinh</span><span class="d-nav-tag">${isOfficial ? "06" : "🔒"}</span></button>
+                <button class="d-nav-btn ${isOfficial ? (initTab === "shop" ? "active" : "") : "locked"}" data-tab="shop"><span>🛒 Cửa hàng sinh viên</span><span class="d-nav-tag">${isOfficial ? "06" : "🔒"}</span></button>
               </nav>
             </aside>
             <main class="d-main">
@@ -559,7 +559,7 @@
 
               <section class="d-pane ${initTab === "help" ? "active" : ""}" id="dp-help">
                 <div class="d-card">
-                  <div class="d-ctitle"><span>Sổ tay Học sinh chính thức</span></div>
+                  <div class="d-ctitle"><span>Sổ tay Sinh viên chính thức</span></div>
                   <details class="d-acc" open>
                     <summary>🛡️ Hướng dẫn an toàn trong phòng ngủ</summary>
                     <p>Sau khi hoàn thành bài kiểm tra ngày, từ 20:00 đến 08:00 sáng hôm sau (và ngày Chủ Nhật) là thời gian an toàn tuyệt đối để nghỉ ngơi và hồi phục ô nhiễm tinh thần nhẹ.</p>
@@ -578,7 +578,7 @@
 
               <section class="d-pane ${initTab === "shop" ? "active" : ""}" id="dp-shop">
                 <div class="d-card">
-                  <div class="d-ctitle"><span>Cửa hàng học sinh</span><span style="font-family:var(--mono);">Số dư: ${esc(user.points)} điểm</span></div>
+                  <div class="d-ctitle"><span>Cửa hàng sinh viên</span><span style="font-family:var(--mono);">Số dư: ${esc(user.points)} điểm</span></div>
                   ${shopHtml}
                 </div>
               </section>
@@ -601,7 +601,7 @@
       root.querySelectorAll(".d-nav-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
           if (btn.classList.contains("locked")) {
-            notify("Chưa mở khóa! Cần vượt qua màn Tân thủ để thành Học sinh chính thức.");
+            notify("Chưa mở khóa! Cần vượt qua màn Tân thủ để thành Sinh viên chính thức.");
             return;
           }
           root.querySelectorAll(".d-nav-btn").forEach(function (b) { b.classList.remove("active"); });
