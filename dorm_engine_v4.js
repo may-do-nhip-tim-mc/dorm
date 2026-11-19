@@ -457,15 +457,21 @@
         return `<div class="d-stile"><div class="d-snum">${esc(statsArr[i] != null ? statsArr[i] : 10)}</div><div class="d-slbl">${lbl}</div></div>`;
       }).join("");
 
+      const userPtsMatch = String(user.points == null ? "0" : user.points).match(/\d+/);
+      const userPts = userPtsMatch ? parseInt(userPtsMatch[0], 10) : 0;
+
       const shopHtml = shop.length
         ? shop.map(function (it) {
-            const cost = Number(it.price) || 0;
-            const ok = (Number(user.points) || 0) >= cost;
+            const rawPrice = it.price != null ? it.price : (it.cost != null ? it.cost : (it.points != null ? it.points : it.point));
+            const priceMatch = String(rawPrice == null ? "" : rawPrice).match(/\d+/);
+            const cost = priceMatch ? parseInt(priceMatch[0], 10) : 0;
+            const ok = userPts >= cost;
+            const desc = it.desc || it.description || "";
             return `
               <div class="d-sitem">
                 <div>
                   <div style="font-weight:700;font-size:12.5px;">${esc(it.name)} ${it.stock ? `<small style="color:var(--muted);font-weight:400;">(${esc(it.stock)})</small>` : ""}</div>
-                  <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${esc(it.desc || "")}</div>
+                  <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${esc(desc)}</div>
                 </div>
                 <div class="d-price ${ok ? "ok" : "no"}">${cost} điểm</div>
               </div>`;
