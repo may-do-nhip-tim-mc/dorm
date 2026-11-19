@@ -265,7 +265,7 @@
     return `<div class="d-dots-box"><div class="d-mini-t"><span>Trạng thái 4 thành viên</span><span>⚪ Trong phòng • ⚫ Ngoài phòng</span></div><div class="d-dots">${
       list.map(m => {
         const cls = m.alive === false ? "dead" : (m.inRoom ? "in" : "");
-        return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed \vert{}\vert{} "G?")} ${esc(m.name || "")}</span></div>`;
+        return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed || "G?")} ${esc(m.name || "")}</span></div>`;
       }).join("")
     }</div></div>`;
   }
