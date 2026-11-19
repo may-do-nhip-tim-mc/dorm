@@ -2,10 +2,11 @@
   const root = document.getElementById("dorm-app-root") || document.body;
   const raw = window.DORM_STATE || {};
 
-  // Neutral fallbacks — tuyệt đối không chứa tên nhân vật hay cốt truyện cứng
+  const view = (raw.view || "full").toLowerCase() === "notify" ? "notify" : "full";
   const mode = ["pre", "temp", "official"].includes((raw.mode || "").toLowerCase())
     ? raw.mode.toLowerCase()
     : "pre";
+  const isOfficial = mode === "official";
 
   const user = Object.assign(
     {
@@ -28,7 +29,7 @@
   );
 
   const clock = Object.assign(
-    { time: "Ngày 1 • 20:00", countdown: "--:--", status: "" },
+    { time: "Ngày 1 • 20:00", countdown: "", status: "" },
     raw.clock || {}
   );
 
@@ -43,9 +44,25 @@
     raw.exam || {}
   );
   const shop = Array.isArray(raw.shop) ? raw.shop : [];
+  const notifyData = Object.assign(
+    { tag: "THÔNG BÁO ỨNG DỤNG", title: "", lines: [], showDots: false, choices: [], evaluation: null },
+    raw.notify || {}
+  );
   const alertMsg = raw.alert || "";
 
-  // Inject CSS once
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+  }
+
+  function pct(cur, max) {
+    const m = Math.max(1, Number(max) || 100);
+    const c = Math.max(0, Number(cur) || 0);
+    return Math.min(100, Math.round((c / m) * 100));
+  }
+
+  // Inject Styles
   if (!document.getElementById("dorm-engine-style")) {
     const style = document.createElement("style");
     style.id = "dorm-engine-style";
@@ -57,16 +74,42 @@
         --mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
         --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
       }
-      .dorm-wrap.mode-official {
+      .mode-official {
         --bg: #090607; --panel: #120b0d; --panel-2: #1b1013; --border: #421b22;
         --text: #f5ecee; --muted: #a6858c; --accent: #e0313d; --accent-soft: rgba(224,49,61,0.16);
       }
-      .dorm-wrap.mode-pre {
+      .mode-pre {
         --bg: #070708; --panel: #101012; --panel-2: #17171a; --border: #333338;
         --accent: #d9383a; --accent-soft: rgba(217,56,58,0.15);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { height: 100%; background: #070708; font-family: var(--sans); font-size: 13px; line-height: 1.45; }
+      html, body { background: transparent; font-family: var(--sans); font-size: 13px; line-height: 1.45; }
+
+      /* === VIEW 1: COMPACT PUSH NOTIFICATION === */
+      .d-notify-card {
+        width: 100%; color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+        border-radius: 12px; overflow: hidden;
+        background: radial-gradient(circle at top right, var(--accent-soft), transparent 55%), var(--panel);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      }
+      .d-n-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        padding: 8px 13px; background: var(--bg); border-bottom: 1px solid var(--border);
+      }
+      .d-n-brand { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12px; letter-spacing: 0.4px; }
+      .d-n-tag {
+        font-size: 10px; font-family: var(--mono); padding: 2px 7px; border-radius: 99px;
+        border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); text-transform: uppercase;
+      }
+      .d-n-body { padding: 11px 14px; display: flex; flex-direction: column; gap: 8px; }
+      .d-n-title { font-size: 14px; font-weight: 700; color: #fff; }
+      .d-n-line { font-size: 12.5px; color: var(--text); padding: 5px 9px; background: var(--panel-2); border-radius: 6px; border-left: 2px solid var(--accent); }
+      .d-n-foot {
+        padding: 6px 13px; background: var(--bg); border-top: 1px solid var(--border);
+        display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); font-family: var(--mono);
+      }
+
+      /* === VIEW 2: FULL SMARTPHONE === */
       .dorm-wrap {
         display: flex; flex-direction: column; height: 100vh; min-height: 520px; width: 100%;
         color: var(--text); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
@@ -191,20 +234,78 @@
     document.head.appendChild(style);
   }
 
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-    })[c]);
+  function renderChoices(list) {
+    if (!list || !list.length) return "";
+    return list.map(ch => `
+      <div class="d-choice">
+        <div class="d-ch-t"><span>${esc(ch.code ? ch.code + ": " : "")}${esc(ch.title)}</span><span style="font-size:11px;color:var(--muted);">▾ Xem chi tiết</span></div>
+        <div class="d-ch-d">
+          <div>${esc(ch.intro || "")}</div>
+          ${ch.note ? `<div class="d-ch-n">[Chú thích: ${esc(ch.note)}]</div>` : ""}
+        </div>
+      </div>`).join("");
   }
 
-  function pct(cur, max) {
-    const m = Math.max(1, Number(max) || 100);
-    const c = Math.max(0, Number(cur) || 0);
-    return Math.min(100, Math.round((c / m) * 100));
+  function renderEval(ev) {
+    if (!ev) return "";
+    return `
+      <div class="d-eval">
+        <div class="d-ecell"><div class="d-ek">Bài kiểm tra</div><div class="d-ev">${esc(ev.testName)}</div></div>
+        <div class="d-ecell"><div class="d-ek">Sát thương</div><div class="d-ev">${esc(ev.dmg)}</div></div>
+        <div class="d-ecell"><div class="d-ek">Kháng ST</div><div class="d-ev">${esc(ev.tank)}</div></div>
+        <div class="d-ecell"><div class="d-ek">Hỗ trợ</div><div class="d-ev">${esc(ev.sup)}</div></div>
+        <div class="d-ecell"><div class="d-ek">Điểm hiệu quả</div><div class="d-ev">${esc(ev.eff)}</div></div>
+        <div class="d-ecell"><div class="d-ek">Xếp loại</div><div class="d-ev" style="color:var(--accent);">${esc(ev.grade || "--")}</div></div>
+        <div class="d-ecell" style="grid-column:span 3;"><div class="d-ek">Tập thể & Phần thưởng</div><div class="d-ev">${esc(ev.teamScore || "--")}${ev.reward ? " • " + esc(ev.reward) : ""}</div></div>
+      </div>`;
   }
 
+  function renderDots(list) {
+    if (!list.length) return "";
+    return `<div class="d-dots-box"><div class="d-mini-t"><span>Trạng thái 4 thành viên</span><span>⚪ Trong phòng • ⚫ Ngoài phòng</span></div><div class="d-dots">${
+      list.map(m => {
+        const cls = m.alive === false ? "dead" : (m.inRoom ? "in" : "");
+        return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed \vert{}\vert{} "G?")} ${esc(m.name || "")}</span></div>`;
+      }).join("")
+    }</div></div>`;
+  }
+
+  // ==========================================================
+  // BRANCH 1: AUTO PUSH-NOTIFICATION VIEW (view: "notify")
+  // ==========================================================
+  if (view === "notify") {
+    const linesHtml = (notifyData.lines || []).map(l => `<div class="d-n-line">${esc(l)}</div>`).join("");
+    const dotsHtml = notifyData.showDots ? renderDots(team) : "";
+    const choicesHtml = renderChoices(notifyData.choices);
+    const evalHtml = renderEval(notifyData.evaluation);
+
+    root.innerHTML = `
+      <div class="d-notify-card mode-${mode}">
+        <div class="d-n-head">
+          <div class="d-n-brand"><span>📱 THÔNG BÁO ĐIỆN THOẠI</span><span class="d-n-tag">${esc(notifyData.tag)}</span></div>
+          <div class="d-meta">
+            <span>${esc(clock.time)}</span>
+            ${clock.countdown ? `<span class="d-cd">⏳ ${esc(clock.countdown)}</span>` : ""}
+          </div>
+        </div>
+        <div class="d-n-body">
+          ${notifyData.title ? `<div class="d-n-title">${esc(notifyData.title)}</div>` : ""} ${linesHtml} ${dotsHtml} ${choicesHtml ? `<div>${choicesHtml}</div>` : ""}
+          ${evalHtml}
+        </div>
+        <div class="d-n-foot">
+          <span>${esc(user.dorm)} • ${esc(user.school)}</span>
+          <span>Gõ /phone để mở toàn bộ App</span>
+        </div>
+      </div>
+    `;
+    root.querySelectorAll(".d-choice").forEach(c => c.addEventListener("click", () => c.classList.toggle("open")));
+    return;
+  }
+
+  // ==========================================================
+  // BRANCH 2: FULL INTERACTIVE SMARTPHONE (view: "full")
+  // ==========================================================
   const modeLabels = { pre: "Tiền trò chơi", temp: "Học sinh tạm thời", official: "Học sinh chính thức" };
-  const isOfficial = mode === "official";
   const zCodes = { g: "Xanh lá • An toàn", y: "Vàng • Dị thường", r: "Đỏ • Xâm nhập!" };
   const mapZones = [
     { key: "door", name: "🚪 Cửa chính", cls: "" },
@@ -219,7 +320,7 @@
     const c = ["g", "y", "r"].includes(dormMap[z.key]) ? dormMap[z.key] : "g";
     if (c === "r") worst = "r";
     else if (c === "y" && worst !== "r") worst = "y";
-    return `<div class="d-zone z-${c} ${z.cls}" data-zmsg="${esc(z.name + ': ' + zCodes[c])}"><strong>${z.name}</strong><span class="d-zst">${zCodes[c]}</span></div>`;
+    return `<div class="d-zone z-${c} ${z.cls}" data-zmsg="${esc(z.name + ": " + zCodes[c])}"><strong>${z.name}</strong><span class="d-zst">${zCodes[c]}</span></div>`;
   }).join("");
 
   const safetyMeta = worst === "r"
@@ -228,12 +329,12 @@
       ? { txt: "CẢNH BÁO", col: "#ffd28a", cap: "warn" }
       : { txt: "AN TOÀN", col: "#7ef2b1", cap: "" };
 
-  const dotsHtml = team.length
+  const dotsSideHtml = team.length
     ? team.map(m => {
         const cls = m.alive === false ? "dead" : (m.inRoom ? "in" : "");
         return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed || "G?")}</span></div>`;
       }).join("")
-    : `<div class="d-empty">Chưa có dữ liệu thành viên</div>`;
+    : `<div class="d-empty">Chưa có dữ liệu</div>`;
 
   const membersHtml = team.length
     ? team.map(m => {
@@ -265,36 +366,15 @@
       }).join("")
     : `<div class="d-empty">Hiện chưa có nhiệm vụ nào được kích hoạt.</div>`;
 
-  const choicesHtml = exam.choices && exam.choices.length
-    ? `<div class="d-card">
-         <div class="d-ctitle"><span>Đề thi đang mở (Bấm từng quyển để xem chú thích)</span></div>
-         ${exam.choices.map(ch => `
-           <div class="d-choice">
-             <div class="d-ch-t"><span>${esc(ch.code ? ch.code + ": " : "")}${esc(ch.title)}</span><span style="font-size:11px;color:var(--muted);">▾ Xem</span></div>
-             <div class="d-ch-d">
-               <div>${esc(ch.intro || "")}</div>
-               ${ch.note ? `<div class="d-ch-n">[Chú thích: ${esc(ch.note)}]</div>` : ""}
-             </div>
-           </div>`).join("")}
-       </div>`
+  const choicesBlock = exam.choices && exam.choices.length
+    ? `<div class="d-card"><div class="d-ctitle"><span>Đề thi đang mở (Bấm để xem chú thích)</span></div>${renderChoices(exam.choices)}</div>`
     : "";
 
-  const evalHtml = exam.evaluation
-    ? `<div class="d-card">
-         <div class="d-ctitle"><span>Đánh giá thành tích gần nhất</span><span>${esc(exam.evaluation.grade || "")}</span></div>
-         <div class="d-eval">
-           <div class="d-ecell"><div class="d-ek">Bài kiểm tra</div><div class="d-ev">${esc(exam.evaluation.testName)}</div></div>
-           <div class="d-ecell"><div class="d-ek">Sát thương</div><div class="d-ev">${esc(exam.evaluation.dmg)}</div></div>
-           <div class="d-ecell"><div class="d-ek">Kháng ST</div><div class="d-ev">${esc(exam.evaluation.tank)}</div></div>
-           <div class="d-ecell"><div class="d-ek">Hỗ trợ</div><div class="d-ev">${esc(exam.evaluation.sup)}</div></div>
-           <div class="d-ecell"><div class="d-ek">Điểm hiệu quả</div><div class="d-ev">${esc(exam.evaluation.eff)}</div></div>
-           <div class="d-ecell"><div class="d-ek">Thành tựu</div><div class="d-ev">${esc(exam.evaluation.ach)}</div></div>
-           <div class="d-ecell" style="grid-column:span 3;"><div class="d-ek">Thành tích tập thể phòng ngủ</div><div class="d-ev">${esc(exam.evaluation.teamScore || "--")} ${exam.evaluation.teamGrade ? "• " + esc(exam.evaluation.teamGrade) : ""}</div></div>
-         </div>
-       </div>`
+  const evalBlock = exam.evaluation
+    ? `<div class="d-card"><div class="d-ctitle"><span>Đánh giá thành tích gần nhất</span><span>${esc(exam.evaluation.grade || "")}</span></div>${renderEval(exam.evaluation)}</div>`
     : "";
 
-  const historyHtml = exam.history && exam.history.length
+  const historyBlock = exam.history && exam.history.length
     ? `<div class="d-card"><div class="d-ctitle"><span>Lịch sử bài kiểm tra</span></div>${
         exam.history.map(h => `<div class="d-mis done"><span>${esc(h.name)} (${esc(h.score)})</span><span class="d-mtag">${esc(h.reward)}</span></div>`).join("")
       }</div>`
@@ -332,16 +412,17 @@
 
   const limbsOk = String(user.limbs || "").toLowerCase().includes("lành");
 
+  // Determine initial active tab
+  const validTabs = isOfficial ? ["dorm", "exam", "skill", "body", "help", "shop"] : ["dorm", "exam", "skill", "body"];
+  const initTab = validTabs.includes(raw.activeTab) ? raw.activeTab : "dorm";
+
   root.innerHTML = `
     <div class="dorm-wrap mode-${mode}">
       <div class="d-top">
-        <div class="d-brand">
-          <span>📱 SINH TỒN PHÒNG NGỦ</span>
-          <span class="d-badge">${modeLabels[mode]}</span>
-        </div>
+        <div class="d-brand"><span>📱 SINH TỒN PHÒNG NGỦ</span><span class="d-badge">${modeLabels[mode]}</span></div>
         <div class="d-meta">
           <span>${esc(clock.time)}</span>
-          <span class="d-cd">⏳ ${esc(clock.countdown)}</span>
+          ${clock.countdown ? `<span class="d-cd">⏳ ${esc(clock.countdown)}</span>` : ""}
         </div>
       </div>
       ${alertMsg ? `<div class="d-alert"><span>🔔</span><span>${esc(alertMsg)}</span></div>` : ""}
@@ -357,19 +438,19 @@
           </div>
           <div class="d-dots-box">
             <div class="d-mini-t"><span>4 thành viên</span><span>${esc(user.rank)}</span></div>
-            <div class="d-dots">${dotsHtml}</div>
+            <div class="d-dots">${dotsSideHtml}</div>
           </div>
           <nav class="d-nav">
-            <button class="d-nav-btn active" data-tab="dorm"><span>🏠 Tình hình phòng ngủ</span><span class="d-nav-tag">01</span></button>
-            <button class="d-nav-btn" data-tab="exam"><span>📝 Kiểm tra / Thi đấu</span><span class="d-nav-tag">02</span></button>
-            <button class="d-nav-btn" data-tab="skill"><span>✨ Đạo cụ / Dị năng</span><span class="d-nav-tag">03</span></button>
-            <button class="d-nav-btn" data-tab="body"><span>🩺 Thông tin cơ thể</span><span class="d-nav-tag">04</span></button>
-            <button class="d-nav-btn ${isOfficial ? "" : "locked"}" data-tab="help"><span>📖 Giải đáp thắc mắc</span><span class="d-nav-tag">${isOfficial ? "05" : "🔒"}</span></button>
-            <button class="d-nav-btn ${isOfficial ? "" : "locked"}" data-tab="shop"><span>🛒 Cửa hàng học sinh</span><span class="d-nav-tag">${isOfficial ? "06" : "🔒"}</span></button>
+            <button class="d-nav-btn ${initTab === "dorm" ? "active" : ""}" data-tab="dorm"><span>🏠 Tình hình phòng ngủ</span><span class="d-nav-tag">01</span></button>
+            <button class="d-nav-btn ${initTab === "exam" ? "active" : ""}" data-tab="exam"><span>📝 Kiểm tra / Thi đấu</span><span class="d-nav-tag">02</span></button>
+            <button class="d-nav-btn ${initTab === "skill" ? "active" : ""}" data-tab="skill"><span>✨ Đạo cụ / Dị năng</span><span class="d-nav-tag">03</span></button>
+            <button class="d-nav-btn ${initTab === "body" ? "active" : ""}" data-tab="body"><span>🩺 Thông tin cơ thể</span><span class="d-nav-tag">04</span></button>
+            <button class="d-nav-btn ${isOfficial ? (initTab === "help" ? "active" : "") : "locked"}" data-tab="help"><span>📖 Giải đáp thắc mắc</span><span class="d-nav-tag">${isOfficial ? "05" : "🔒"}</span></button>
+            <button class="d-nav-btn ${isOfficial ? (initTab === "shop" ? "active" : "") : "locked"}" data-tab="shop"><span>🛒 Cửa hàng học sinh</span><span class="d-nav-tag">${isOfficial ? "06" : "🔒"}</span></button>
           </nav>
         </aside>
         <main class="d-main">
-          <section class="d-pane active" id="dp-dorm">
+          <section class="d-pane ${initTab === "dorm" ? "active" : ""}" id="dp-dorm">
             <div class="d-card">
               <div class="d-ctitle"><span>Bản đồ an toàn phòng ngủ</span><span style="color:${safetyMeta.col};">${safetyMeta.txt}</span></div>
               <div class="d-bp">${mapHtml}</div>
@@ -381,17 +462,17 @@
             </div>
           </section>
 
-          <section class="d-pane" id="dp-exam">
+          <section class="d-pane ${initTab === "exam" ? "active" : ""}" id="dp-exam">
             <div class="d-card">
               <div class="d-ctitle"><span>${esc(exam.title)}</span><span style="font-size:10px;color:var(--muted);">${esc(clock.status)}</span></div>
               ${missionsHtml}
             </div>
-            ${choicesHtml}
-            ${evalHtml}
-            ${historyHtml}
+            ${choicesBlock}
+            ${evalBlock}
+            ${historyBlock}
           </section>
 
-          <section class="d-pane" id="dp-skill">
+          <section class="d-pane ${initTab === "skill" ? "active" : ""}" id="dp-skill">
             <div class="d-card">
               <div class="d-ctitle"><span>Dị năng thiên phú</span></div>
               <div style="background:var(--panel-2);padding:10px 12px;border-radius:8px;border:1px solid var(--border);">
@@ -403,7 +484,7 @@
             <div class="d-card"><div class="d-ctitle"><span>Buff thành tựu</span></div>${buffsHtml}</div>
           </section>
 
-          <section class="d-pane" id="dp-body">
+          <section class="d-pane ${initTab === "body" ? "active" : ""}" id="dp-body">
             <div class="d-card">
               <div class="d-ctitle"><span>Mức độ khỏe mạnh</span><span style="font-family:var(--mono);">${esc(user.hp)}/${esc(user.maxHp)}</span></div>
               <div class="d-bar" style="height:11px;margin-bottom:8px;"><div class="d-fill ${userHpCls}" style="width:${userHpPct}%;"></div></div>
@@ -416,7 +497,7 @@
             </div>
           </section>
 
-          <section class="d-pane" id="dp-help">
+          <section class="d-pane ${initTab === "help" ? "active" : ""}" id="dp-help">
             <div class="d-card">
               <div class="d-ctitle"><span>Sổ tay Học sinh chính thức</span></div>
               <details class="d-acc" open>
@@ -435,7 +516,7 @@
             </div>
           </section>
 
-          <section class="d-pane" id="dp-shop">
+          <section class="d-pane ${initTab === "shop" ? "active" : ""}" id="dp-shop">
             <div class="d-card">
               <div class="d-ctitle"><span>Cửa hàng học sinh</span><span style="font-family:var(--mono);">Số dư: ${esc(user.points)} điểm</span></div>
               ${shopHtml}
@@ -469,17 +550,9 @@
     });
   });
 
-  root.querySelectorAll(".d-zone").forEach(z => {
-    z.addEventListener("click", () => notify(z.dataset.zmsg));
-  });
-
-  root.querySelectorAll(".d-choice").forEach(c => {
-    c.addEventListener("click", () => c.classList.toggle("open"));
-  });
-
-  root.querySelectorAll(".d-call:not(.off)").forEach(c => {
-    c.addEventListener("click", () => notify(`Gõ /call ${c.dataset.call} trong khung chat để liên lạc.`));
-  });
+  root.querySelectorAll(".d-zone").forEach(z => z.addEventListener("click", () => notify(z.dataset.zmsg)));
+  root.querySelectorAll(".d-choice").forEach(c => c.addEventListener("click", () => c.classList.toggle("open")));
+  root.querySelectorAll(".d-call:not(.off)").forEach(c => c.addEventListener("click", () => notify(`Gõ /call ${c.dataset.call} trong khung chat để liên lạc.`)));
 
   const csBtn = root.querySelector("#d-cs-btn");
   if (csBtn) {
