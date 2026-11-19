@@ -572,7 +572,7 @@
                   </details>
                   <details class="d-acc">
                     <summary>📋 Quy tắc kiểm tra & Thi đấu</summary>
-                    <p>Thứ Hai – Thứ Sáu là thời gian học tập (08:00 làm mới 2–3 Quyển đề thi, đếm ngược 15 phút). Đạt &lt; 1 bài/tuần: loại bỏ cả phòng ngủ. Đạt &gt; 3 bài/tuần: cuối tuần được báo danh Thi đấu ngoại khóa. Chủ Nhật làm mới Bảng xếp hạng 985/211 toàn cầu.</p>
+                    <p>Thứ Hai – Thứ Sáu là thời gian học tập (08:00 làm mới 2–3 Quyển đề thi, đếm ngược 15 phút). Đạt &lt; 1 bài/tuần: loại bỏ cả phòng ngủ. Đạt &ge; 3 bài/tuần: cuối tuần được báo danh Thi đấu ngoại khóa. Chủ Nhật làm mới Bảng xếp hạng 985/211 toàn cầu.</p>
                   </details>
                   <details class="d-acc">
                     <summary>🎓 Chế độ học phần (Tốt nghiệp)</summary>
