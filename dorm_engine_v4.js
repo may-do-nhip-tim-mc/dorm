@@ -284,7 +284,7 @@
       const buffsList = toArr(user.buffs);
       const statsArr = Array.isArray(user.stats) ? user.stats : [10, 10, 10, 10];
 
-      const clock = toObj(raw.clock, { time: "Ngày 1 • 20:00", countdown: "", status: "" });
+      const clock = toObj(raw.clock, { time: "Ngày 1 • 22:00", countdown: "", status: "" });
       const dormMap = toObj(raw.dormMap, {
         door: "g", beds: "g", desk: "g", bath: "g", balcony: "g",
         note: "Chưa có dữ liệu quét an toàn."
