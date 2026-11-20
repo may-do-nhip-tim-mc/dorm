@@ -24,6 +24,154 @@
     return Object.assign({}, fallback);
   }
 
+  function parseNum(v, fb) {
+    const m = String(v == null ? "" : v).match(/-?\d+/);
+    return m ? parseInt(m[0], 10) : (fb || 0);
+  }
+
+  function extractRoomId(str) {
+    const m = String(str || "").match(/\b(\d{3})\b/);
+    return m ? m[1] : "";
+  }
+
+  function buildHubRooms(rawHub, user) {
+    const defaultTiers = [
+      "ĐH Hạng Ba", "ĐH Hạng Ba", "ĐH Thường", "ĐH Thường", "ĐH 211", "ĐH 985"
+    ];
+    const map = {};
+    const order = [];
+    for (let f = 1; f <= 5; f++) {
+      for (let r = 1; r <= 6; r++) {
+        const id = String(f * 100 + r);
+        const tier = defaultTiers[(f + r) % defaultTiers.length];
+        map[id] = {
+          id: id,
+          floor: f,
+          count: 4,
+          max: 4,
+          score: 0,
+          school: tier,
+          note: "Chưa có tin đồn nổi bật từ phòng này.",
+          isUser: false
+        };
+        order.push(id);
+      }
+    }
+
+    const userRoomId = extractRoomId(user && user.dorm);
+
+    toArr(rawHub).forEach(function (entry) {
+      let item = null;
+      if (typeof entry === "string") {
+        const parts = entry.split("|").map(function (x) { return x.trim(); });
+        const rid = extractRoomId(parts[0]) || parts[0];
+        if (!rid) return;
+        item = {
+          id: rid,
+          count: parts[1] !== undefined && parts[1] !== "" ? parseNum(parts[1], 4) : 4,
+          score: parts[2] !== undefined && parts[2] !== "" ? parseNum(parts[2], 0) : 0,
+          school: parts[3] || "",
+          note: parts[4] || ""
+        };
+      } else if (entry && typeof entry === "object") {
+        const rid = extractRoomId(entry.id || entry.room || entry.name) || String(entry.id || entry.room || "");
+        if (!rid) return;
+        item = {
+          id: rid,
+          floor: entry.floor ? parseNum(entry.floor, 1) : undefined,
+          count: entry.count != null ? parseNum(entry.count, 4) : (entry.alive != null ? parseNum(entry.alive, 4) : 4),
+          max: entry.max != null ? parseNum(entry.max, 4) : 4,
+          score: entry.score != null ? parseNum(entry.score, 0) : (entry.totalScore != null ? parseNum(entry.totalScore, 0) : 0),
+          school: entry.school || entry.tier || "",
+          note: entry.note || entry.status || "",
+          isUser: Boolean(entry.isUser)
+        };
+      }
+      if (!item || !item.id) return;
+
+      if (map[item.id]) {
+        const base = map[item.id];
+        base.count = Math.max(0, Math.min(4, item.count));
+        base.score = Math.max(0, item.score);
+        if (item.school) base.school = item.school;
+        if (item.note) base.note = item.note;
+        if (item.isUser) base.isUser = true;
+      } else {
+        const fl = item.floor || Math.min(5, Math.max(1, parseInt(item.id.charAt(0), 10) || 1));
+        const replaceId = String(fl * 100 + 6);
+        const idx = order.indexOf(replaceId);
+        if (idx !== -1 && replaceId !== userRoomId) {
+          delete map[replaceId];
+          order[idx] = item.id;
+        } else {
+          order.push(item.id);
+        }
+        map[item.id] = {
+          id: item.id,
+          floor: fl,
+          count: Math.max(0, Math.min(4, item.count)),
+          max: item.max || 4,
+          score: Math.max(0, item.score),
+          school: item.school || "ĐH Thường",
+          note: item.note || "Phòng thuộc Khu Nội Trú Liên Hợp.",
+          isUser: Boolean(item.isUser)
+        };
+      }
+    });
+
+    if (userRoomId) {
+      if (!map[userRoomId]) {
+        const fl = Math.min(5, Math.max(1, parseInt(userRoomId.charAt(0), 10) || 4));
+        const replaceId = String(fl * 100 + 4);
+        const idx = order.indexOf(replaceId);
+        if (idx !== -1) {
+          delete map[replaceId];
+          order[idx] = userRoomId;
+        } else {
+          order.push(userRoomId);
+        }
+        map[userRoomId] = {
+          id: userRoomId,
+          floor: fl,
+          count: 4,
+          max: 4,
+          score: 0,
+          school: (user && user.school) || "ĐH Hạng Ba",
+          note: "Phòng KTX hiện tại của bạn.",
+          isUser: true
+        };
+      } else {
+        map[userRoomId].isUser = true;
+        if (user && user.school && !map[userRoomId].school) {
+          map[userRoomId].school = user.school;
+        }
+      }
+    }
+
+    const list = order.map(function (id) { return map[id]; }).filter(Boolean);
+
+    // Sort for ranking: alive rooms (count > 0) sorted by score desc, then count desc, then id asc
+    const ranked = list.slice().sort(function (a, b) {
+      const aAlive = a.count > 0 ? 1 : 0;
+      const bAlive = b.count > 0 ? 1 : 0;
+      if (aAlive !== bAlive) return bAlive - aAlive;
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.count !== a.count) return b.count - a.count;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    let rankNum = 1;
+    ranked.forEach(function (rm) {
+      if (rm.count > 0) {
+        rm.rank = rankNum++;
+      } else {
+        rm.rank = null;
+      }
+    });
+
+    return { list: list, ranked: ranked, byId: map, userRoomId: userRoomId };
+  }
+
   function injectStyles() {
     if (document.getElementById("dorm-engine-style")) return;
     const style = document.createElement("style");
@@ -80,7 +228,7 @@
 
       /* === VIEW 2: FULL SMARTPHONE === */
       .dorm-wrap {
-        display: flex; flex-direction: column; min-height: 520px; width: 100%;
+        display: flex; flex-direction: column; min-height: 540px; width: 100%;
         color: var(--text); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
         background: radial-gradient(circle at top right, var(--accent-soft), transparent 45%), var(--bg);
       }
@@ -99,7 +247,7 @@
         background: rgba(217,56,58,0.14); border-bottom: 1px solid rgba(217,56,58,0.35);
         color: #ff9497; padding: 6px 14px; font-size: 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
       }
-      .d-grid { display: grid; grid-template-columns: 240px 1fr; flex: 1; min-height: 0; }
+      .d-grid { display: grid; grid-template-columns: 235px 1fr; flex: 1; min-height: 0; }
       .d-side {
         background: var(--panel); border-right: 1px solid var(--border); padding: 12px;
         display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
@@ -120,10 +268,10 @@
       .d-dot.in { background: #f4f4f6; border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.6); }
       .d-dot.dead { background: #2b0b0c; border-color: var(--danger); position: relative; }
       .d-dot.dead::after { content: "×"; color: var(--danger); font-weight: 700; font-size: 13px; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-      .d-nav { display: flex; flex-direction: column; gap: 5px; }
+      .d-nav { display: flex; flex-direction: column; gap: 4px; }
       .d-nav-btn {
         width: 100%; text-align: left; background: transparent; color: var(--text); border: 1px solid transparent;
-        border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 12.5px;
+        border-radius: 8px; padding: 7.5px 10px; cursor: pointer; font-size: 12.2px;
         display: flex; align-items: center; justify-content: space-between; transition: 0.15s;
       }
       .d-nav-btn:hover { background: var(--panel-2); border-color: var(--border); }
@@ -192,6 +340,78 @@
       details.d-acc summary { cursor: pointer; font-weight: 600; }
       details.d-acc p { margin-top: 6px; color: var(--muted); font-size: 12px; }
       .d-csbtn { width: 100%; padding: 9px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent-soft); color: #fff; font-weight: 600; cursor: pointer; margin-top: 4px; }
+
+      /* === TAB 07: 30-ROOM ARCHITECTURAL HUB MAP & LEADERBOARD === */
+      .h-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+      .h-ktile { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; text-align: center; }
+      .h-knum { font-family: var(--mono); font-size: 15px; font-weight: 700; color: #fff; }
+      .h-knum.warn { color: var(--warn); }
+      .h-knum.acc { color: var(--accent); }
+      .h-klbl { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+      .h-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 7px; }
+      .h-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+      .h-pill {
+        background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+        border-radius: 6px; padding: 4px 9px; font-size: 11.5px; cursor: pointer; font-family: var(--mono);
+      }
+      .h-pill:hover { border-color: var(--accent); color: var(--text); }
+      .h-pill.active { background: var(--accent-soft); border-color: var(--accent); color: #fff; font-weight: 700; }
+      .h-detail {
+        background: #0d080a; border: 1px solid var(--border); border-left: 3px solid var(--accent);
+        border-radius: 8px; padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+      }
+      .h-dhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; font-weight: 700; color: #fff; }
+      .h-dmeta { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+      .h-floor-wrap { display: flex; flex-direction: column; gap: 10px; }
+      .h-floor {
+        background: #0a0708; border: 1px solid var(--border); border-radius: 9px; padding: 9px;
+        background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+        background-size: 16px 16px;
+      }
+      .h-fl-head {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px;
+        font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase;
+      }
+      .h-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .h-corridor {
+        margin: 6px 0; padding: 3px 8px; border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);
+        background: rgba(255,255,255,0.025); font-family: var(--mono); font-size: 9.5px; color: var(--muted);
+        display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.8px;
+      }
+      .h-room {
+        position: relative; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+        padding: 6px 7px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; transition: 0.14s;
+      }
+      .h-room:hover { border-color: var(--accent); transform: translateY(-1px); }
+      .h-room.sel { box-shadow: 0 0 0 1px #fff; border-color: #fff; }
+      .h-room.st-safe { border-left: 3px solid var(--safe); }
+      .h-room.st-warn { border-left: 3px solid var(--warn); background: rgba(230,162,60,0.09); border-color: rgba(230,162,60,0.45); }
+      .h-room.st-crit { border-left: 3px solid var(--danger); background: rgba(217,56,58,0.12); border-color: rgba(217,56,58,0.55); }
+      .h-room.st-dead { opacity: 0.42; background: #0c0a0b; border-style: dashed; border-color: #3a2326; }
+      .h-room.is-user { border: 1.5px solid var(--accent); box-shadow: 0 0 10px rgba(224,49,61,0.32); background: rgba(224,49,61,0.14); }
+      .h-rtop { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-weight: 700; font-size: 12px; }
+      .h-rk { font-size: 9.5px; padding: 1px 4px; border-radius: 4px; background: var(--bg); color: var(--muted); }
+      .h-rk.top3 { color: #ffd666; border: 1px solid rgba(255,214,102,0.45); }
+      .h-rmid { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 10.5px; }
+      .h-pips { letter-spacing: 1px; font-size: 10px; }
+      .h-pips.safe { color: #7ef2b1; }
+      .h-pips.warn { color: #ffd28a; }
+      .h-pips.crit { color: #ff8e91; }
+      .h-pips.dead { color: var(--danger); }
+      .h-sc { font-weight: 700; color: var(--text); }
+      .h-rbot { display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; gap: 4px; }
+      .h-badge-sm { font-family: var(--mono); font-size: 9px; padding: 0px 4px; border-radius: 3px; font-weight: 700; }
+      .h-badge-sm.you { background: var(--accent); color: #fff; }
+      .h-badge-sm.merge { background: rgba(230,162,60,0.22); color: #ffd28a; border: 1px solid rgba(230,162,60,0.5); }
+      .h-legend { display: flex; flex-wrap: wrap; gap: 9px; font-size: 10.5px; color: var(--muted); font-family: var(--mono); padding-top: 2px; }
+      .h-table { width: 100%; border-collapse: collapse; font-size: 11.8px; }
+      .h-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--muted); font-family: var(--mono); padding: 6px 7px; border-bottom: 1px solid var(--border); }
+      .h-table td { padding: 6px 7px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+      .h-table tr { cursor: pointer; }
+      .h-table tr:hover { background: var(--panel-2); }
+      .h-table tr.is-user { background: rgba(224,49,61,0.14); font-weight: 600; }
+      .h-table tr.st-dead { opacity: 0.45; text-decoration: line-through; }
+
       .d-toast { position: fixed; bottom: 12px; right: 14px; background: #1d1013; border: 1px solid var(--accent); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 12px; display: none; z-index: 99; }
       .d-err { background: #260b0d; color: #ffb3b5; border: 1px solid #e0313d; border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; }
       ::-webkit-scrollbar { width: 5px; }
@@ -200,9 +420,10 @@
         .dorm-wrap { height: auto; min-height: 460px; }
         .d-grid { grid-template-columns: 1fr; }
         .d-side { border-right: none; border-bottom: 1px solid var(--border); }
-        .d-mlist, .d-stats, .d-eval { grid-template-columns: 1fr 1fr; }
+        .d-mlist, .d-stats, .d-eval, .h-kpi { grid-template-columns: 1fr 1fr; }
         .d-bp { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
         .d-zone.span2 { grid-column: span 2; }
+        .h-row { grid-template-columns: repeat(2, 1fr); }
       }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -240,12 +461,50 @@
 
   function renderDots(list) {
     if (!list.length) return "";
-    return `<div class="d-dots-box"><div class="d-mini-t"><span>Trạng thái 4 thành viên</span><span>⚪ Trong phòng • ⚫ Ngoài</span></div><div class="d-dots">${
+    return `<div class="d-dots-box"><div class="d-mini-t"><span>Trạng thái thành viên</span><span>⚪ Trong phòng • ⚫ Ngoài</span></div><div class="d-dots">${
       list.map(function (m) {
         const cls = m.alive === false ? "dead" : (m.inRoom ? "in" : "");
         return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed || "G?")} ${esc(m.name || "")}</span></div>`;
       }).join("")
     }</div></div>`;
+  }
+
+  function pipsStr(count) {
+    if (count <= 0) return "✕ XÓA";
+    let s = "";
+    for (let i = 0; i < 4; i++) s += (i < count ? "●" : "○");
+    return s;
+  }
+
+  function roomStatusClass(rm) {
+    if (rm.count <= 0) return "st-dead";
+    if (rm.count === 1) return "st-crit";
+    if (rm.count === 2) return "st-warn";
+    return "st-safe";
+  }
+
+  function roomStatusLabel(rm) {
+    if (rm.count <= 0) return "💀 Đã xóa sổ";
+    if (rm.count <= 2) return "⚠️ Báo động: Bắt buộc ghép phòng trước 08:00";
+    if (rm.count === 3) return "🟡 Còn 1 giường trống (có thể tuyển/ghép)";
+    return "🟢 Đủ người (4/4)";
+  }
+
+  function renderRoomDetailHtml(rm) {
+    if (!rm) return `<div class="d-empty">Chạm vào bất kỳ phòng nào trên sơ đồ hoặc BXH để xem thông tin chi tiết.</div>`;
+    return `
+      <div class="h-dhead">
+        <span>🚪 Phòng ${esc(rm.id)} • Tầng ${esc(rm.floor)} ${rm.isUser ? '<span class="h-badge-sm you">PHÒNG BẠN</span>' : ""}</span>
+        <span style="font-family:var(--mono);color:var(--accent);">${rm.rank ? "Hạng #" + rm.rank : "ĐÃ XÓA SỔ"}</span>
+      </div>
+      <div class="h-dmeta">
+        <span>🏫 ${esc(rm.school)}</span>
+        <span>👥 Nhân số: ${esc(rm.count)}/4</span>
+        <span>📊 Tổng điểm phòng: <strong>${esc(rm.score)} đ</strong> (Điểm cá nhân: ẨN)</span>
+      </div>
+      <div style="font-size:11.5px;color:${rm.count <= 0 ? "#ff8e91" : (rm.count <= 2 ? "#ffd28a" : "#7ef2b1")};">${roomStatusLabel(rm)}</div>
+      <div style="font-size:11.5px;color:var(--muted);">📝 ${esc(rm.note || "Không có ghi nhận bất thường.")}</div>
+    `;
   }
 
   function renderDormApp(inputState) {
@@ -347,7 +606,7 @@
             </div>
             <div class="d-n-foot">
               <span>${esc(user.dorm)} • ${esc(user.school)}</span>
-              <span>Gõ /phone để mở toàn bộ App</span>
+              <span>Gõ /phone hoặc /map để mở App</span>
             </div>
           </div>
         `;
@@ -433,7 +692,10 @@
         ? `<div class="d-card"><div class="d-ctitle"><span>Lịch sử bài kiểm tra</span></div>${
             examHistory.map(function (h) {
               const ho = typeof h === "string" ? { name: h, score: "", reward: "" } : toObj(h, { name: "", score: "", reward: "" });
-              return `<div class="d-mis done"><span>${esc(ho.name)}${ho.score ? " (" + esc(ho.score) + ")" : ""}</span><span class="d-mtag">${esc(ho.reward)}</span></div>`;
+              const label = ho.name || ho.title || "Bài kiểm tra";
+              const res = ho.score || ho.result || "";
+              const rew = ho.reward || "";
+              return `<div class="d-mis done"><span>${esc(label)}${res ? " (" + esc(res) + ")" : ""}</span><span class="d-mtag">${esc(rew)}</span></div>`;
             }).join("")
           }</div>`
         : "";
@@ -457,14 +719,12 @@
         return `<div class="d-stile"><div class="d-snum">${esc(statsArr[i] != null ? statsArr[i] : 10)}</div><div class="d-slbl">${lbl}</div></div>`;
       }).join("");
 
-      const userPtsMatch = String(user.points == null ? "0" : user.points).match(/\d+/);
-      const userPts = userPtsMatch ? parseInt(userPtsMatch[0], 10) : 0;
+      const userPts = parseNum(user.points, 0);
 
       const shopHtml = shop.length
         ? shop.map(function (it) {
             const rawPrice = it.price != null ? it.price : (it.cost != null ? it.cost : (it.points != null ? it.points : it.point));
-            const priceMatch = String(rawPrice == null ? "" : rawPrice).match(/\d+/);
-            const cost = priceMatch ? parseInt(priceMatch[0], 10) : 0;
+            const cost = parseNum(rawPrice, 0);
             const ok = userPts >= cost;
             const desc = it.desc || it.description || "";
             return `
@@ -478,9 +738,84 @@
           }).join("")
         : `<div class="d-empty">Cửa hàng hiện đang đóng hoặc chưa tải danh mục.</div>`;
 
+      // === BUILD 30-ROOM HUB DATA ===
+      const hub = buildHubRooms(raw.hubRooms, user);
+      const aliveRooms = hub.list.filter(function (r) { return r.count > 0; }).length;
+      const totalAliveStudents = hub.list.reduce(function (acc, r) { return acc + r.count; }, 0);
+      const mergeAlertRooms = hub.list.filter(function (r) { return r.count === 1 || r.count === 2; }).length;
+      const userHubRoom = hub.byId[hub.userRoomId] || hub.ranked[0];
+      const userRankText = userHubRoom && userHubRoom.rank ? ("#" + userHubRoom.rank) : (user.rank || "--");
+      const userRoomScoreText = userHubRoom ? (userHubRoom.score + " đ") : "--";
+
+      function buildFloorHtml(floorNum) {
+        const roomsOnFloor = hub.list.filter(function (r) { return r.floor === floorNum; });
+        const topRow = roomsOnFloor.slice(0, 3);
+        const botRow = roomsOnFloor.slice(3, 6);
+        function cell(rm) {
+          const stCls = roomStatusClass(rm);
+          const pipCls = rm.count <= 0 ? "dead" : (rm.count === 1 ? "crit" : (rm.count === 2 ? "warn" : "safe"));
+          const rkCls = rm.rank && rm.rank <= 3 ? "top3" : "";
+          const badge = rm.isUser
+            ? `<span class="h-badge-sm you">BẠN</span>`
+            : (rm.count === 1 || rm.count === 2 ? `<span class="h-badge-sm merge">GHÉP!</span>` : "");
+          return `
+            <div class="h-room ${stCls} ${rm.isUser ? "is-user" : ""}" data-rid="${esc(rm.id)}">
+              <div class="h-rtop">
+                <span>P.${esc(rm.id)}</span>
+                <span class="h-rk ${rkCls}">${rm.rank ? "#" + rm.rank : "✕"}</span>
+              </div>
+              <div class="h-rmid">
+                <span class="h-pips ${pipCls}">${pipsStr(rm.count)}</span>
+                <span class="h-sc">${rm.count > 0 ? esc(rm.score) + "đ" : "--"}</span>
+              </div>
+              <div class="h-rbot">
+                <span style="overflow:hidden;text-overflow:ellipsis;">${esc(rm.school)}</span>
+                ${badge}
+              </div>
+            </div>`;
+        }
+        return `
+          <div class="h-floor" data-floor="${floorNum}">
+            <div class="h-fl-head">
+              <span>▓ TẦNG ${floorNum} — KHU NỘI TRÚ LIÊN HỢP</span>
+              <span>${roomsOnFloor.filter(function (r) { return r.count > 0; }).length}/${roomsOnFloor.length} phòng còn sống</span>
+            </div>
+            <div class="h-row">${topRow.map(cell).join("")}</div>
+            <div class="h-corridor">
+              <span>╠══ HÀNH LANG TẦNG ${floorNum} ══</span>
+              <span>CẦU THANG • BẢNG TIN ══╣</span>
+            </div>
+            <div class="h-row">${botRow.map(cell).join("")}</div>
+          </div>`;
+      }
+
+      const allFloorsHtml = [5, 4, 3, 2, 1].map(buildFloorHtml).join("");
+
+      function buildRankRows(filterMode) {
+        return hub.ranked.filter(function (rm) {
+          if (filterMode === "merge") return rm.count === 1 || rm.count === 2;
+          if (filterMode === "open") return rm.count === 3;
+          return true;
+        }).map(function (rm) {
+          const stCls = roomStatusClass(rm);
+          const statusShort = rm.count <= 0 ? "💀 Xóa sổ" : (rm.count <= 2 ? "⚠️ Cần ghép" : (rm.count === 3 ? "🟡 Thiếu 1" : "🟢 Đủ"));
+          return `
+            <tr class="${stCls} ${rm.isUser ? "is-user" : ""}" data-rid="${esc(rm.id)}">
+              <td style="font-family:var(--mono);font-weight:700;color:${rm.rank && rm.rank <= 3 ? "#ffd666" : "var(--muted)"};">${rm.rank ? "#" + rm.rank : "—"}</td>
+              <td style="font-family:var(--mono);font-weight:700;">P.${esc(rm.id)} ${rm.isUser ? '<span class="h-badge-sm you">BẠN</span>' : ""}</td>
+              <td>${esc(rm.school)}</td>
+              <td style="font-family:var(--mono);">${esc(rm.count)}/4</td>
+              <td style="font-family:var(--mono);font-weight:700;color:var(--accent);">${rm.count > 0 ? esc(rm.score) + " đ" : "0 đ"}</td>
+              <td style="font-size:11px;">${statusShort}</td>
+            </tr>`;
+        }).join("") || `<tr><td colspan="6" class="d-empty" style="text-align:center;padding:10px;">Không có phòng nào khớp bộ lọc.</td></tr>`;
+      }
+
       const limbsOk = String(user.limbs || "").toLowerCase().includes("lành");
-      const validTabs = isOfficial ? ["dorm", "exam", "skill", "body", "help", "shop"] : ["dorm", "exam", "skill", "body"];
-      const initTab = validTabs.includes(raw.activeTab) ? raw.activeTab : "dorm";
+      const validTabs = isOfficial ? ["dorm", "exam", "skill", "body", "help", "shop", "map"] : ["dorm", "exam", "skill", "body"];
+      const reqTab = raw.activeTab === "rank" ? "map" : raw.activeTab;
+      const initTab = validTabs.includes(reqTab) ? reqTab : "dorm";
+      const initMapSub = raw.activeTab === "rank" ? "rank" : "grid";
 
       root.innerHTML = `
         <div class="dorm-wrap mode-${mode}">
@@ -503,7 +838,7 @@
                 </div>
               </div>
               <div class="d-dots-box">
-                <div class="d-mini-t"><span>4 thành viên</span><span>${esc(user.rank)}</span></div>
+                <div class="d-mini-t"><span>Thành viên phòng</span><span>${esc(isOfficial ? userRankText : user.rank)}</span></div>
                 <div class="d-dots">${dotsSideHtml}</div>
               </div>
               <nav class="d-nav">
@@ -513,6 +848,7 @@
                 <button class="d-nav-btn ${initTab === "body" ? "active" : ""}" data-tab="body"><span>🩺 Thông tin cơ thể</span><span class="d-nav-tag">04</span></button>
                 <button class="d-nav-btn ${isOfficial ? (initTab === "help" ? "active" : "") : "locked"}" data-tab="help"><span>📖 Giải đáp thắc mắc</span><span class="d-nav-tag">${isOfficial ? "05" : "🔒"}</span></button>
                 <button class="d-nav-btn ${isOfficial ? (initTab === "shop" ? "active" : "") : "locked"}" data-tab="shop"><span>🛒 Cửa hàng sinh viên</span><span class="d-nav-tag">${isOfficial ? "06" : "🔒"}</span></button>
+                <button class="d-nav-btn ${isOfficial ? (initTab === "map" ? "active" : "") : "locked"}" data-tab="map"><span>🗺️ Khu 30 Phòng & BXH</span><span class="d-nav-tag">${isOfficial ? "07" : "🔒"}</span></button>
               </nav>
             </aside>
             <main class="d-main">
@@ -547,7 +883,7 @@
                   </div>
                 </div>
                 <div class="d-card"><div class="d-ctitle"><span>Kho đạo cụ & Vật phẩm</span></div>${itemsHtml}</div>
-                <div class="d-card"><div class="d-ctitle"><span>Buff thành tựu</span></div>${buffsHtml}</div>
+                <div class="d-card"><div class="d-ctitle"><span>Buff thành tựu & Đặc quyền</span></div>${buffsHtml}</div>
               </section>
 
               <section class="d-pane ${initTab === "body" ? "active" : ""}" id="dp-body">
@@ -567,16 +903,16 @@
                 <div class="d-card">
                   <div class="d-ctitle"><span>Sổ tay Sinh viên chính thức</span></div>
                   <details class="d-acc" open>
-                    <summary>🛡️ Hướng dẫn an toàn trong phòng ngủ</summary>
-                    <p>Sau khi hoàn thành bài kiểm tra ngày, từ 20:00 đến 08:00 sáng hôm sau (và ngày Chủ Nhật) là thời gian an toàn tuyệt đối để nghỉ ngơi và hồi phục ô nhiễm tinh thần nhẹ.</p>
+                    <summary>🛡️ Khu Nội Trú Liên Hợp 30 Phòng & Giờ An Toàn</summary>
+                    <p>30 phòng KTX sống sót toàn quốc được hợp nhất vào tòa nhà 5 tầng (101–506). Từ 20:00 đến 08:00 sáng hôm sau (và cả ngày Chủ Nhật) là Giờ An Toàn: được tự do đi lại hành lang, giao lưu, trao đổi và xin chuyển/ghép phòng. Mọi sinh viên bắt buộc thuộc một phòng có tối thiểu 3 người còn sống trước mốc 08:00; phòng tụt xuống 1–2 người buộc phải ghép phòng hoặc bị xóa sổ.</p>
                   </details>
                   <details class="d-acc">
-                    <summary>📋 Quy tắc kiểm tra & Thi đấu</summary>
-                    <p>Thứ Hai – Thứ Sáu là thời gian học tập (08:00 làm mới 2–3 Quyển đề thi, đếm ngược 15 phút). Đạt &lt; 1 bài/tuần: loại bỏ cả phòng ngủ. Đạt &ge; 3 bài/tuần: cuối tuần được báo danh Thi đấu ngoại khóa. Chủ Nhật làm mới Bảng xếp hạng 985/211 toàn cầu.</p>
+                    <summary>📋 Quy tắc Kiểm tra, Trượt môn & Đặc quyền MVP</summary>
+                    <p>Thứ Hai – Thứ Sáu lúc 08:00 mở 2–3 Quyển đề thi (đếm ngược 15 phút). Đạt &lt; 1 bài/tuần bị xóa sổ; đạt &ge; 3 bài/tuần mở Thi đấu ngoại khóa Thứ Bảy. Điểm tập thể &lt; 60 hoặc cá nhân Kém tính trượt môn (trừ 1 Học phần &amp; kích hoạt Phụ Đạo Đêm). Riêng MVP mỗi bài thi nhận thưởng Điểm tích lũy vượt trội, Buff đặc quyền cá nhân và 1 giấy 'Loại trừ rớt tín chỉ' cá nhân.</p>
                   </details>
                   <details class="d-acc">
-                    <summary>🎓 Chế độ học phần (Tốt nghiệp)</summary>
-                    <p>Toàn bộ thành viên còn sống trong phòng ngủ đạt từ 100 Học phần trở lên sẽ mở Bài thi tốt nghiệp để trở về thế giới thực.</p>
+                    <summary>🏆 BXH Tổng Điểm Phòng & Tốt Nghiệp 100 Học Phần</summary>
+                    <p>BXH xếp hạng 30 phòng theo TỔNG ĐIỂM PHÒNG (biến động trực tiếp theo người chuyển đi, chuyển đến hoặc tử vong; điểm từng cá nhân được giữ bí mật). Học phần tính theo cá nhân — ai đạt đủ 100 Học phần sẽ mở riêng Bài thi tốt nghiệp để thoát ly vĩnh viễn.</p>
                   </details>
                   <button class="d-csbtn" id="d-cs-btn">💬 Chăm sóc khách hàng online (Tiêu hao 1 Học phần)</button>
                 </div>
@@ -586,6 +922,59 @@
                 <div class="d-card">
                   <div class="d-ctitle"><span>Cửa hàng sinh viên</span><span style="font-family:var(--mono);">Số dư: ${esc(user.points)} điểm</span></div>
                   ${shopHtml}
+                </div>
+              </section>
+
+              <section class="d-pane ${initTab === "map" ? "active" : ""}" id="dp-map">
+                <div class="h-kpi">
+                  <div class="h-ktile"><div class="h-knum">${aliveRooms}/30</div><div class="h-klbl">Phòng còn sống</div></div>
+                  <div class="h-ktile"><div class="h-knum">${totalAliveStudents}/120</div><div class="h-klbl">Tổng sinh viên</div></div>
+                  <div class="h-ktile"><div class="h-knum warn">${mergeAlertRooms} phòng</div><div class="h-klbl">Cần ghép (≤2)</div></div>
+                  <div class="h-ktile"><div class="h-knum acc">${esc(userRankText)}</div><div class="h-klbl">Hạng (${esc(userRoomScoreText)})</div></div>
+                </div>
+
+                <div class="d-card" style="display:flex;flex-direction:column;gap:10px;">
+                  <div class="h-toolbar">
+                    <div class="h-pills" id="h-mode-pills">
+                      <button class="h-pill ${initMapSub === "grid" ? "active" : ""}" data-hview="grid">🗺️ Sơ đồ 5 tầng</button>
+                      <button class="h-pill ${initMapSub === "rank" ? "active" : ""}" data-hview="rank">🏆 BXH Tổng điểm</button>
+                    </div>
+                    <div class="h-pills" id="h-floor-pills" style="${initMapSub === "grid" ? "" : "display:none;"}">
+                      <button class="h-pill active" data-fl="all">Tất cả</button>
+                      <button class="h-pill" data-fl="5">T5</button>
+                      <button class="h-pill" data-fl="4">T4</button>
+                      <button class="h-pill" data-fl="3">T3</button>
+                      <button class="h-pill" data-fl="2">T2</button>
+                      <button class="h-pill" data-fl="1">T1</button>
+                    </div>
+                    <div class="h-pills" id="h-rank-pills" style="${initMapSub === "rank" ? "" : "display:none;"}">
+                      <button class="h-pill active" data-rf="all">30 Phòng</button>
+                      <button class="h-pill" data-rf="merge">⚠️ Cần ghép (≤2)</button>
+                      <button class="h-pill" data-rf="open">🟡 Còn chỗ (3/4)</button>
+                    </div>
+                  </div>
+
+                  <div class="h-detail" id="h-room-detail">${renderRoomDetailHtml(userHubRoom)}</div>
+
+                  <div id="h-view-grid" style="${initMapSub === "grid" ? "" : "display:none;"}">
+                    <div class="h-floor-wrap">${allFloorsHtml}</div>
+                    <div class="h-legend" style="margin-top:8px;">
+                      <span>🟢 3–4 người</span>
+                      <span>🟠 2 người (Ghép!)</span>
+                      <span>🔴 1 người (Nguy cấp)</span>
+                      <span>✕ 0 người (Xóa sổ)</span>
+                      <span>• Điểm cá nhân: ẨN</span>
+                    </div>
+                  </div>
+
+                  <div id="h-view-rank" style="${initMapSub === "rank" ? "" : "display:none;"}overflow-x:auto;">
+                    <table class="h-table">
+                      <thead>
+                        <tr><th>Hạng</th><th>Phòng</th><th>Khối trường</th><th>Nhân số</th><th>Tổng điểm</th><th>Trạng thái</th></tr>
+                      </thead>
+                      <tbody id="h-rank-tbody">${buildRankRows("all")}</tbody>
+                    </table>
+                  </div>
                 </div>
               </section>
             </main>
@@ -601,7 +990,7 @@
         toast.textContent = msg;
         toast.style.display = "block";
         clearTimeout(tId);
-        tId = setTimeout(function () { toast.style.display = "none"; }, 2500);
+        tId = setTimeout(function () { toast.style.display = "none"; }, 2600);
       }
 
       root.querySelectorAll(".d-nav-btn").forEach(function (btn) {
@@ -637,6 +1026,63 @@
           else notify("Gõ /cs [Câu hỏi] trong khung chat để tiêu hao 1 Học phần.");
         });
       }
+
+      // === TAB 07 INTERACTIVITY ===
+      const detailEl = root.querySelector("#h-room-detail");
+      function bindRoomSelection() {
+        root.querySelectorAll("[data-rid]").forEach(function (el) {
+          el.addEventListener("click", function () {
+            const rid = el.getAttribute("data-rid");
+            const rm = hub.byId[rid];
+            if (!rm || !detailEl) return;
+            root.querySelectorAll(".h-room.sel").forEach(function (x) { x.classList.remove("sel"); });
+            const card = root.querySelector('.h-room[data-rid="' + rid + '"]');
+            if (card) card.classList.add("sel");
+            detailEl.innerHTML = renderRoomDetailHtml(rm);
+          });
+        });
+      }
+      bindRoomSelection();
+
+      const viewGrid = root.querySelector("#h-view-grid");
+      const viewRank = root.querySelector("#h-view-rank");
+      const floorPills = root.querySelector("#h-floor-pills");
+      const rankPills = root.querySelector("#h-rank-pills");
+      const rankTbody = root.querySelector("#h-rank-tbody");
+
+      root.querySelectorAll("#h-mode-pills .h-pill").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          root.querySelectorAll("#h-mode-pills .h-pill").forEach(function (b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          const v = btn.dataset.hview;
+          if (viewGrid) viewGrid.style.display = v === "grid" ? "" : "none";
+          if (floorPills) floorPills.style.display = v === "grid" ? "" : "none";
+          if (viewRank) viewRank.style.display = v === "rank" ? "" : "none";
+          if (rankPills) rankPills.style.display = v === "rank" ? "" : "none";
+        });
+      });
+
+      root.querySelectorAll("#h-floor-pills .h-pill").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          root.querySelectorAll("#h-floor-pills .h-pill").forEach(function (b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          const fl = btn.dataset.fl;
+          root.querySelectorAll(".h-floor").forEach(function (f) {
+            f.style.display = (fl === "all" || f.dataset.floor === fl) ? "" : "none";
+          });
+        });
+      });
+
+      root.querySelectorAll("#h-rank-pills .h-pill").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          root.querySelectorAll("#h-rank-pills .h-pill").forEach(function (b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          if (rankTbody) {
+            rankTbody.innerHTML = buildRankRows(btn.dataset.rf);
+            bindRoomSelection();
+          }
+        });
+      });
     } catch (err) {
       root.innerHTML = `<div class="d-err">⚠️ Lỗi hiển thị Dorm App: ${esc(err && err.message ? err.message : err)}</div>`;
     }
@@ -647,6 +1093,11 @@
   function boot() {
     if (window.DORM_STATE) {
       renderDormApp(window.DORM_STATE);
+    } else {
+      const root = document.getElementById("dorm-app-root") || document.body;
+      if (root) {
+        root.innerHTML = '<div style="background:#260b0d;color:#ffb3b5;border:1px solid #e0313d;border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;">⚠️ Không đọc được dữ liệu window.DORM_STATE (có thể AI viết sai cú pháp JS).</div>';
+      }
     }
   }
 
