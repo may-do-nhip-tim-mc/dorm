@@ -34,71 +34,104 @@
     return m ? m[1] : "";
   }
 
-  function buildHubRooms(rawHub, user) {
-    const defaultTiers = [
-      "ĐH Hạng Ba", "ĐH Hạng Ba", "ĐH Thường", "ĐH Thường", "ĐH 211", "ĐH 985"
-    ];
+  function hashNum(str) {
+    let h = 2166136261;
+    const s = String(str || "");
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h);
+  }
+
+  function copyCmd(cmd, notifyFn) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmd).then(function () {
+        if (notifyFn) notifyFn("Đã sao chép lệnh: " + cmd);
+      }).catch(function () {
+        if (notifyFn) notifyFn("Gõ trong khung chat: " + cmd);
+      });
+    } else if (notifyFn) {
+      notifyFn("Gõ trong khung chat: " + cmd);
+    }
+  }
+
+  function buildHub100(rawHub, user, rawRoot) {
     const map = {};
     const order = [];
+    // 5 floors x 20 solo rooms = 100 Official Survivors (P.101-120 ... P.501-520)
     for (let f = 1; f <= 5; f++) {
-      for (let r = 1; r <= 6; r++) {
+      for (let r = 1; r <= 20; r++) {
         const id = String(f * 100 + r);
-        const tier = defaultTiers[(f + r) % defaultTiers.length];
         map[id] = {
           id: id,
           floor: f,
-          count: 4,
-          max: 4,
-          score: 0,
-          school: tier,
-          note: "Chưa có tin đồn nổi bật từ phòng này.",
-          isUser: false
+          alive: true,
+          score: null,
+          sub: "Chưa rõ",
+          note: "Ẩn danh theo ID phòng — chưa từng tiếp xúc.",
+          isUser: false,
+          explicit: false
         };
         order.push(id);
       }
     }
 
-    const userRoomId = extractRoomId(user && user.dorm);
+    const userRoomId = extractRoomId(user && user.dorm) || "407";
+    const userCredits = Math.max(0, parseNum(user && user.credits, 0));
+    const userPoints = Math.max(0, parseNum(user && user.points, 0));
+    const defaultUserScore = Math.max(10, userCredits * 30 + userPoints);
 
+    // Optional explicit dead room IDs array
+    toArr(rawRoot && rawRoot.deadRooms).forEach(function (dr) {
+      const rid = extractRoomId(dr);
+      if (rid && map[rid] && rid !== userRoomId) {
+        map[rid].alive = false;
+        map[rid].score = 0;
+        map[rid].note = "Đã bị loại bỏ khỏi trò chơi.";
+        map[rid].explicit = true;
+      }
+    });
+
+    // Parse AI-supplied notable entries in hubRooms
+    // Compact string format: "P.501|1(Sống)/0(Chết)|Điểm|Học phần hoặc Nhãn|Ghi chú ẩn danh"
     toArr(rawHub).forEach(function (entry) {
       let item = null;
       if (typeof entry === "string") {
         const parts = entry.split("|").map(function (x) { return x.trim(); });
-        const rid = extractRoomId(parts[0]) || parts[0];
+        const rid = extractRoomId(parts[0]);
         if (!rid) return;
+        const aliveFlag = parts[1] !== undefined && parts[1] !== ""
+          ? parseNum(parts[1], 1) > 0
+          : true;
         item = {
           id: rid,
-          count: parts[1] !== undefined && parts[1] !== "" ? parseNum(parts[1], 4) : 4,
-          score: parts[2] !== undefined && parts[2] !== "" ? parseNum(parts[2], 0) : 0,
-          school: parts[3] || "",
-          note: parts[4] || ""
+          alive: aliveFlag,
+          score: parts[2] !== undefined && parts[2] !== "" ? Math.max(0, parseNum(parts[2], 0)) : null,
+          sub: parts[3] || "",
+          note: parts[4] || "",
+          isUser: false
         };
       } else if (entry && typeof entry === "object") {
-        const rid = extractRoomId(entry.id || entry.room || entry.name) || String(entry.id || entry.room || "");
+        const rid = extractRoomId(entry.id || entry.room || entry.name);
         if (!rid) return;
+        const aliveFlag = entry.alive !== undefined
+          ? (typeof entry.alive === "boolean" ? entry.alive : parseNum(entry.alive, 1) > 0)
+          : (entry.count !== undefined ? parseNum(entry.count, 1) > 0 : true);
         item = {
           id: rid,
-          floor: entry.floor ? parseNum(entry.floor, 1) : undefined,
-          count: entry.count != null ? parseNum(entry.count, 4) : (entry.alive != null ? parseNum(entry.alive, 4) : 4),
-          max: entry.max != null ? parseNum(entry.max, 4) : 4,
-          score: entry.score != null ? parseNum(entry.score, 0) : (entry.totalScore != null ? parseNum(entry.totalScore, 0) : 0),
-          school: entry.school || entry.tier || "",
+          alive: aliveFlag,
+          score: entry.score != null ? Math.max(0, parseNum(entry.score, 0)) : null,
+          sub: entry.sub || entry.credits || entry.school || entry.org || "",
           note: entry.note || entry.status || "",
           isUser: Boolean(entry.isUser)
         };
       }
       if (!item || !item.id) return;
 
-      if (map[item.id]) {
-        const base = map[item.id];
-        base.count = Math.max(0, Math.min(4, item.count));
-        base.score = Math.max(0, item.score);
-        if (item.school) base.school = item.school;
-        if (item.note) base.note = item.note;
-        if (item.isUser) base.isUser = true;
-      } else {
-        const fl = item.floor || Math.min(5, Math.max(1, parseInt(item.id.charAt(0), 10) || 1));
-        const replaceId = String(fl * 100 + 6);
+      if (!map[item.id]) {
+        const fl = Math.min(5, Math.max(1, parseInt(item.id.charAt(0), 10) || 1));
+        const replaceId = String(fl * 100 + 20);
         const idx = order.indexOf(replaceId);
         if (idx !== -1 && replaceId !== userRoomId) {
           delete map[replaceId];
@@ -109,67 +142,147 @@
         map[item.id] = {
           id: item.id,
           floor: fl,
-          count: Math.max(0, Math.min(4, item.count)),
-          max: item.max || 4,
-          score: Math.max(0, item.score),
-          school: item.school || "ĐH Thường",
-          note: item.note || "Phòng thuộc Khu Nội Trú Liên Hợp.",
-          isUser: Boolean(item.isUser)
+          alive: item.alive,
+          score: item.alive ? item.score : 0,
+          sub: item.sub || "Ẩn danh",
+          note: item.note || "Phòng đơn thuộc Khu 100 Người.",
+          isUser: Boolean(item.isUser),
+          explicit: true
         };
+      } else {
+        const base = map[item.id];
+        base.alive = item.alive;
+        base.score = item.alive ? item.score : 0;
+        if (item.sub) base.sub = item.sub;
+        if (item.note) base.note = item.note;
+        if (item.isUser) base.isUser = true;
+        base.explicit = true;
       }
     });
 
-    if (userRoomId) {
-      if (!map[userRoomId]) {
-        const fl = Math.min(5, Math.max(1, parseInt(userRoomId.charAt(0), 10) || 4));
-        const replaceId = String(fl * 100 + 4);
-        const idx = order.indexOf(replaceId);
-        if (idx !== -1) {
-          delete map[replaceId];
-          order[idx] = userRoomId;
-        } else {
-          order.push(userRoomId);
-        }
-        map[userRoomId] = {
-          id: userRoomId,
-          floor: fl,
-          count: 4,
-          max: 4,
-          score: 0,
-          school: (user && user.school) || "ĐH Hạng Ba",
-          note: "Phòng KTX hiện tại của bạn.",
-          isUser: true
-        };
+    // Anchor user's solo room
+    if (!map[userRoomId]) {
+      const fl = Math.min(5, Math.max(1, parseInt(userRoomId.charAt(0), 10) || 4));
+      const replaceId = String(fl * 100 + 7);
+      const idx = order.indexOf(replaceId);
+      if (idx !== -1) {
+        delete map[replaceId];
+        order[idx] = userRoomId;
       } else {
-        map[userRoomId].isUser = true;
-        if (user && user.school && !map[userRoomId].school) {
-          map[userRoomId].school = user.school;
-        }
+        order.push(userRoomId);
+      }
+      map[userRoomId] = {
+        id: userRoomId,
+        floor: fl,
+        alive: true,
+        score: defaultUserScore,
+        sub: userCredits + " Học phần",
+        note: "Phòng đơn của bạn.",
+        isUser: true,
+        explicit: true
+      };
+    } else {
+      const u = map[userRoomId];
+      u.isUser = true;
+      u.alive = true;
+      if (u.score == null) u.score = defaultUserScore;
+      if (!u.sub || u.sub === "Chưa rõ") u.sub = userCredits + " Học phần";
+      if (!u.explicit) u.note = "Phòng đơn của bạn.";
+      u.explicit = true;
+    }
+
+    const userScore = map[userRoomId].score;
+
+    // Synchronize total alive count (e.g., rawRoot.aliveTotal = 92) deterministically
+    const explicitDeadCount = order.filter(function (id) { return !map[id].alive; }).length;
+    const requestedAlive = rawRoot && rawRoot.aliveTotal != null
+      ? Math.max(1, Math.min(100, parseNum(rawRoot.aliveTotal, 100)))
+      : (100 - explicitDeadCount);
+    const targetDead = Math.max(explicitDeadCount, 100 - requestedAlive);
+
+    const fillerIds = order.filter(function (id) { return !map[id].explicit && id !== userRoomId; });
+    // Deterministic shuffle of filler rooms
+    fillerIds.sort(function (a, b) {
+      return (hashNum("D-" + a) % 10000) - (hashNum("D-" + b) % 10000);
+    });
+
+    let needDead = targetDead - explicitDeadCount;
+    for (let i = 0; i < fillerIds.length && needDead > 0; i++) {
+      const rm = map[fillerIds[i]];
+      rm.alive = false;
+      rm.score = 0;
+      rm.sub = "Đã loại";
+      rm.note = "Phòng đã tắt đèn — thí sinh bị loại bỏ.";
+      needDead--;
+    }
+
+    // Distribute scores for remaining alive filler rooms respecting user.rank & >= 2 NPCs above user
+    const aliveFillers = fillerIds.filter(function (id) { return map[id].alive; });
+    const explicitAliveAbove = order.filter(function (id) {
+      return id !== userRoomId && map[id].explicit && map[id].alive && (map[id].score || 0) > userScore;
+    });
+    const maxExplicitScore = explicitAliveAbove.reduce(function (mx, id) {
+      return Math.max(mx, map[id].score || 0);
+    }, userScore + 60);
+
+    const totalAliveNow = order.filter(function (id) { return map[id].alive; }).length;
+    const parsedRank = parseNum(user && user.rank, 0);
+    // Default initial lower-mid rank around ~75% of living survivors if unspecified at low credits
+    const fallbackRank = userCredits <= 2 ? Math.min(totalAliveNow, Math.max(3, Math.round(totalAliveNow * 0.75))) : Math.min(totalAliveNow, Math.max(3, Math.round(totalAliveNow * 0.45)));
+    const targetUserRank = parsedRank >= 3 && parsedRank <= totalAliveNow ? parsedRank : (parsedRank > 0 && parsedRank < 3 ? 3 : fallbackRank);
+
+    // Guarantee at least 2 NPCs strictly above user
+    const targetAboveCount = Math.max(2, targetUserRank - 1);
+    const needAbove = Math.max(0, targetAboveCount - explicitAliveAbove.length);
+
+    aliveFillers.forEach(function (id, idx) {
+      const rm = map[id];
+      const jitter = (hashNum("S-" + id) % 7);
+      if (idx < needAbove) {
+        const span = Math.max(15, maxExplicitScore - userScore - 2);
+        const step = Math.max(1, Math.round(((needAbove - idx) / Math.max(1, needAbove)) * span));
+        rm.score = userScore + step + (jitter % 3);
+      } else {
+        const belowTotal = Math.max(1, aliveFillers.length - needAbove);
+        const bIdx = idx - needAbove;
+        const drop = Math.max(1, Math.round(((bIdx + 1) / belowTotal) * Math.max(8, userScore - 1)));
+        rm.score = Math.max(1, userScore - drop);
+      }
+      const approxCredits = Math.max(1, Math.floor(rm.score / 30));
+      rm.sub = approxCredits + " HP";
+    });
+
+    // Final safety check: ensure >= 2 living NPCs have score strictly > userScore
+    const list = order.map(function (id) { return map[id]; });
+    const aboveList = list.filter(function (r) { return !r.isUser && r.alive && r.score > userScore; });
+    if (aboveList.length < 2) {
+      const candidates = list.filter(function (r) { return !r.isUser && r.alive && r.score <= userScore; });
+      for (let k = 0; k < (2 - aboveList.length) && k < candidates.length; k++) {
+        candidates[k].score = userScore + 18 + (k * 11);
       }
     }
 
-    const list = order.map(function (id) { return map[id]; }).filter(Boolean);
-
-    // Sort for ranking: alive rooms (count > 0) sorted by score desc, then count desc, then id asc
+    // Sort: alive first -> score desc -> non-user before user on exact tie -> room id asc
     const ranked = list.slice().sort(function (a, b) {
-      const aAlive = a.count > 0 ? 1 : 0;
-      const bAlive = b.count > 0 ? 1 : 0;
-      if (aAlive !== bAlive) return bAlive - aAlive;
+      if (a.alive !== b.alive) return a.alive ? -1 : 1;
       if (b.score !== a.score) return b.score - a.score;
-      if (b.count !== a.count) return b.count - a.count;
+      if (a.isUser !== b.isUser) return a.isUser ? 1 : -1;
       return String(a.id).localeCompare(String(b.id));
     });
 
     let rankNum = 1;
     ranked.forEach(function (rm) {
-      if (rm.count > 0) {
-        rm.rank = rankNum++;
-      } else {
-        rm.rank = null;
-      }
+      rm.rank = rm.alive ? rankNum++ : null;
     });
 
-    return { list: list, ranked: ranked, byId: map, userRoomId: userRoomId };
+    return {
+      list: list,
+      ranked: ranked,
+      byId: map,
+      userRoomId: userRoomId,
+      aliveCount: totalAliveNow,
+      deadCount: list.length - totalAliveNow
+    };
   }
 
   function injectStyles() {
@@ -194,11 +307,7 @@
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body {
-        background: transparent;
-        font-family: var(--sans);
-        font-size: 13px;
-        line-height: 1.45;
-        padding: 4px;
+        background: transparent; font-family: var(--sans); font-size: 13px; line-height: 1.45; padding: 4px;
       }
 
       /* === VIEW 1: COMPACT PUSH NOTIFICATION === */
@@ -225,6 +334,23 @@
         display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px;
         font-size: 11px; color: var(--muted); font-family: var(--mono);
       }
+
+      /* === INVITE POPUP CARD === */
+      .d-inv-box {
+        background: #170c0f; border: 1px solid var(--accent); border-radius: 9px; padding: 10px 12px;
+        display: flex; flex-direction: column; gap: 7px;
+      }
+      .d-inv-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 700; color: #fff; font-size: 13px; }
+      .d-inv-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px; }
+      .d-inv-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 2px; }
+      .d-act-btn {
+        padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 700; font-family: var(--mono);
+        cursor: pointer; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); transition: 0.14s;
+      }
+      .d-act-btn:hover { transform: translateY(-1px); border-color: #fff; }
+      .d-act-btn.ok { background: rgba(47,191,113,0.18); border-color: rgba(47,191,113,0.65); color: #8af0b8; }
+      .d-act-btn.no { background: rgba(217,56,58,0.18); border-color: rgba(217,56,58,0.65); color: #ff9c9e; }
+      .d-act-btn.acc { background: var(--accent-soft); border-color: var(--accent); color: #fff; }
 
       /* === VIEW 2: FULL SMARTPHONE === */
       .dorm-wrap {
@@ -303,6 +429,7 @@
       .d-cap.warn { border-left-color: var(--warn); color: #ffd28a; }
       .d-cap.danger { border-left-color: var(--danger); color: #ff9c9e; }
       .d-mlist { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .d-mlist.solo { grid-template-columns: 1fr; }
       .d-mcard { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
       .d-mcard.dead { opacity: 0.48; border-color: var(--danger); }
       .d-mhead { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 12.5px; gap: 4px; }
@@ -322,7 +449,10 @@
       .d-mtag { font-size: 10px; font-family: var(--mono); padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); white-space: nowrap; align-self: flex-start; }
       .d-choice { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; cursor: pointer; margin-bottom: 7px; }
       .d-choice:hover { border-color: var(--accent); }
-      .d-ch-t { font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+      .d-ch-t { font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .d-ch-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+      .d-ch-pill { font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+      .d-ch-pill.q { color: #ffd28a; border-color: rgba(230,162,60,0.45); }
       .d-ch-d { display: none; margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--muted); }
       .d-choice.open .d-ch-d { display: block; }
       .d-ch-n { color: #ff9c9e; margin-top: 4px; font-style: italic; }
@@ -341,7 +471,7 @@
       details.d-acc p { margin-top: 6px; color: var(--muted); font-size: 12px; }
       .d-csbtn { width: 100%; padding: 9px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent-soft); color: #fff; font-weight: 600; cursor: pointer; margin-top: 4px; }
 
-      /* === TAB 07: 30-ROOM ARCHITECTURAL HUB MAP & LEADERBOARD === */
+      /* === TAB 07: 100-SURVIVOR ROOM-ID LEADERBOARD & 5-FLOOR SOLO HUB === */
       .h-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
       .h-ktile { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; text-align: center; }
       .h-knum { font-family: var(--mono); font-size: 15px; font-weight: 700; color: #fff; }
@@ -358,7 +488,7 @@
       .h-pill.active { background: var(--accent-soft); border-color: var(--accent); color: #fff; font-weight: 700; }
       .h-detail {
         background: #0d080a; border: 1px solid var(--border); border-left: 3px solid var(--accent);
-        border-radius: 8px; padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+        border-radius: 8px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; font-size: 12px;
       }
       .h-dhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; font-weight: 700; color: #fff; }
       .h-dmeta { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
@@ -372,7 +502,7 @@
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px;
         font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase;
       }
-      .h-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .h-solo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
       .h-corridor {
         margin: 6px 0; padding: 3px 8px; border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);
         background: rgba(255,255,255,0.025); font-family: var(--mono); font-size: 9.5px; color: var(--muted);
@@ -380,41 +510,34 @@
       }
       .h-room {
         position: relative; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-        padding: 6px 7px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; transition: 0.14s;
+        padding: 5px 6px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; transition: 0.14s;
       }
       .h-room:hover { border-color: var(--accent); transform: translateY(-1px); }
       .h-room.sel { box-shadow: 0 0 0 1px #fff; border-color: #fff; }
       .h-room.st-safe { border-left: 3px solid var(--safe); }
-      .h-room.st-warn { border-left: 3px solid var(--warn); background: rgba(230,162,60,0.09); border-color: rgba(230,162,60,0.45); }
-      .h-room.st-crit { border-left: 3px solid var(--danger); background: rgba(217,56,58,0.12); border-color: rgba(217,56,58,0.55); }
-      .h-room.st-dead { opacity: 0.42; background: #0c0a0b; border-style: dashed; border-color: #3a2326; }
-      .h-room.is-user { border: 1.5px solid var(--accent); box-shadow: 0 0 10px rgba(224,49,61,0.32); background: rgba(224,49,61,0.14); }
-      .h-rtop { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-weight: 700; font-size: 12px; }
-      .h-rk { font-size: 9.5px; padding: 1px 4px; border-radius: 4px; background: var(--bg); color: var(--muted); }
+      .h-room.st-top { border-left: 3px solid #ffd666; background: rgba(255,214,102,0.07); }
+      .h-room.st-dead { opacity: 0.36; background: #0c0a0b; border-style: dashed; border-color: #3a2326; }
+      .h-room.is-user { border: 1.5px solid var(--accent); box-shadow: 0 0 10px rgba(224,49,61,0.35); background: rgba(224,49,61,0.16); }
+      .h-rtop { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-weight: 700; font-size: 11px; }
+      .h-rk { font-size: 9px; padding: 1px 4px; border-radius: 4px; background: var(--bg); color: var(--muted); }
       .h-rk.top3 { color: #ffd666; border: 1px solid rgba(255,214,102,0.45); }
-      .h-rmid { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 10.5px; }
-      .h-pips { letter-spacing: 1px; font-size: 10px; }
-      .h-pips.safe { color: #7ef2b1; }
-      .h-pips.warn { color: #ffd28a; }
-      .h-pips.crit { color: #ff8e91; }
-      .h-pips.dead { color: var(--danger); }
+      .h-rmid { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 10px; color: var(--muted); }
       .h-sc { font-weight: 700; color: var(--text); }
-      .h-rbot { display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; gap: 4px; }
       .h-badge-sm { font-family: var(--mono); font-size: 9px; padding: 0px 4px; border-radius: 3px; font-weight: 700; }
       .h-badge-sm.you { background: var(--accent); color: #fff; }
-      .h-badge-sm.merge { background: rgba(230,162,60,0.22); color: #ffd28a; border: 1px solid rgba(230,162,60,0.5); }
       .h-legend { display: flex; flex-wrap: wrap; gap: 9px; font-size: 10.5px; color: var(--muted); font-family: var(--mono); padding-top: 2px; }
+      .h-table-wrap { max-height: 360px; overflow-y: auto; overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; }
       .h-table { width: 100%; border-collapse: collapse; font-size: 11.8px; }
-      .h-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--muted); font-family: var(--mono); padding: 6px 7px; border-bottom: 1px solid var(--border); }
+      .h-table th { position: sticky; top: 0; background: var(--bg); text-align: left; font-size: 10px; text-transform: uppercase; color: var(--muted); font-family: var(--mono); padding: 6px 7px; border-bottom: 1px solid var(--border); z-index: 2; }
       .h-table td { padding: 6px 7px; border-bottom: 1px solid rgba(255,255,255,0.04); }
       .h-table tr { cursor: pointer; }
       .h-table tr:hover { background: var(--panel-2); }
-      .h-table tr.is-user { background: rgba(224,49,61,0.14); font-weight: 600; }
-      .h-table tr.st-dead { opacity: 0.45; text-decoration: line-through; }
+      .h-table tr.is-user { background: rgba(224,49,61,0.16); font-weight: 700; }
+      .h-table tr.st-dead { opacity: 0.42; text-decoration: line-through; }
 
-      .d-toast { position: fixed; bottom: 12px; right: 14px; background: #1d1013; border: 1px solid var(--accent); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 12px; display: none; z-index: 99; }
+      .d-toast { position: fixed; bottom: 12px; right: 14px; background: #1d1013; border: 1px solid var(--accent); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 12px; display: none; z-index: 99; box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
       .d-err { background: #260b0d; color: #ffb3b5; border: 1px solid #e0313d; border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; }
-      ::-webkit-scrollbar { width: 5px; }
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
       ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
       @media (max-width: 680px) {
         .dorm-wrap { height: auto; min-height: 460px; }
@@ -423,7 +546,7 @@
         .d-mlist, .d-stats, .d-eval, .h-kpi { grid-template-columns: 1fr 1fr; }
         .d-bp { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
         .d-zone.span2 { grid-column: span 2; }
-        .h-row { grid-template-columns: repeat(2, 1fr); }
+        .h-solo-grid { grid-template-columns: repeat(4, 1fr); }
       }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -433,12 +556,48 @@
     const arr = toArr(list).filter(function (ch) { return ch && typeof ch === "object"; });
     if (!arr.length) return "";
     return arr.map(function (ch) {
+      const code = ch.code || "Quyển A";
+      const sizeTxt = ch.size != null ? ("Sĩ số: " + ch.size + " người") : "";
+      const queueTxt = ch.queue != null ? ("Đang chờ ghép: " + ch.queue) : "";
       return `
         <div class="d-choice">
-          <div class="d-ch-t"><span>${esc(ch.code ? ch.code + ": " : "")}${esc(ch.title)}</span><span style="font-size:11px;color:var(--muted);">▾ Chi tiết</span></div>
+          <div class="d-ch-t">
+            <span>${esc(ch.code ? ch.code + ": " : "")}${esc(ch.title)}</span>
+            <span style="font-size:11px;color:var(--muted);">▾ Chi tiết</span>
+          </div>
+          ${(sizeTxt || queueTxt) ? `<div class="d-ch-pills">${sizeTxt ? `<span class="d-ch-pill">👥 ${esc(sizeTxt)}</span>` : ""}${queueTxt ? `<span class="d-ch-pill q">⏳ ${esc(queueTxt)}</span>` : ""}</div>` : ""}
           <div class="d-ch-d">
             <div>${esc(ch.intro || "")}</div>
             ${ch.note ? `<div class="d-ch-n">[Chú thích: ${esc(ch.note)}]</div>` : ""}
+            <div class="d-inv-actions" style="margin-top:8px;">
+              <button class="d-act-btn acc" data-cmd="/random ${esc(code)}">🎲 /random ${esc(code)}</button>
+              <button class="d-act-btn" data-cmd="/match ${esc(code)}">🔍 /match ${esc(code)}</button>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function renderInviteCards(rawInvites) {
+    const arr = toArr(rawInvites).filter(function (x) { return x && typeof x === "object"; });
+    if (!arr.length) return "";
+    return arr.map(function (inv) {
+      const fromId = inv.from || inv.room || "P.???";
+      const cleanId = extractRoomId(fromId) ? ("P." + extractRoomId(fromId)) : fromId;
+      return `
+        <div class="d-inv-box">
+          <div class="d-inv-head">
+            <span>✉️ Lời mời ghép đội từ ${esc(cleanId)}</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--accent);">${esc(inv.rank || "Chưa rõ hạng")}</span>
+          </div>
+          <div class="d-inv-meta">
+            ${inv.course ? `<span>📘 Học phần: <strong>${esc(inv.course)}</strong></span>` : ""}
+            ${inv.slots ? `<span>👥 Tổ đội: ${esc(inv.slots)}</span>` : ""}
+          </div>
+          ${inv.note ? `<div style="font-size:12px;color:var(--text);">"${esc(inv.note)}"</div>` : ""}
+          <div class="d-inv-actions">
+            <button class="d-act-btn ok" data-cmd="/join ${esc(cleanId)}">✓ Đồng ý (/join ${esc(cleanId)})</button>
+            <button class="d-act-btn no" data-cmd="/deny ${esc(cleanId)}">✕ Từ chối (/deny ${esc(cleanId)})</button>
           </div>
         </div>`;
     }).join("");
@@ -455,55 +614,36 @@
         <div class="d-ecell"><div class="d-ek">Điểm hiệu quả</div><div class="d-ev">${esc(ev.eff)}</div></div>
         <div class="d-ecell"><div class="d-ek">Xếp loại</div><div class="d-ev" style="color:var(--accent);">${esc(ev.grade || "--")}</div></div>
         ${ev.ach ? `<div class="d-ecell full"><div class="d-ek">Thành tựu & Buff</div><div class="d-ev">${esc(ev.ach)}</div></div>` : ""}
-        <div class="d-ecell full"><div class="d-ek">Tập thể & Phần thưởng</div><div class="d-ev">${esc(ev.teamScore || "--")}${ev.reward ? " • " + esc(ev.reward) : ""}</div></div>
+        <div class="d-ecell full"><div class="d-ek">Kết quả & Phần thưởng</div><div class="d-ev">${esc(ev.teamScore || "--")}${ev.reward ? " • " + esc(ev.reward) : ""}</div></div>
       </div>`;
   }
 
   function renderDots(list) {
     if (!list.length) return "";
-    return `<div class="d-dots-box"><div class="d-mini-t"><span>Trạng thái thành viên</span><span>⚪ Trong phòng • ⚫ Ngoài</span></div><div class="d-dots">${
+    const isSolo = list.length === 1;
+    return `<div class="d-dots-box"><div class="d-mini-t"><span>${isSolo ? "Trạng thái phòng đơn" : "Trạng thái tổ đội phó bản"}</span><span>⚪ Trong phòng • ⚫ Ngoài</span></div><div class="d-dots">${
       list.map(function (m) {
         const cls = m.alive === false ? "dead" : (m.inRoom ? "in" : "");
-        return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed || "G?")} ${esc(m.name || "")}</span></div>`;
+        return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.name || "")}</span></div>`;
       }).join("")
     }</div></div>`;
   }
 
-  function pipsStr(count) {
-    if (count <= 0) return "✕ XÓA";
-    let s = "";
-    for (let i = 0; i < 4; i++) s += (i < count ? "●" : "○");
-    return s;
-  }
-
-  function roomStatusClass(rm) {
-    if (rm.count <= 0) return "st-dead";
-    if (rm.count === 1) return "st-crit";
-    if (rm.count === 2) return "st-warn";
-    return "st-safe";
-  }
-
-  function roomStatusLabel(rm) {
-    if (rm.count <= 0) return "💀 Đã xóa sổ";
-    if (rm.count <= 2) return "⚠️ Báo động: Bắt buộc ghép phòng trước 08:00";
-    if (rm.count === 3) return "🟡 Còn 1 giường trống (có thể tuyển/ghép)";
-    return "🟢 Đủ người (4/4)";
-  }
-
-  function renderRoomDetailHtml(rm) {
-    if (!rm) return `<div class="d-empty">Chạm vào bất kỳ phòng nào trên sơ đồ hoặc BXH để xem thông tin chi tiết.</div>`;
+  function renderSoloDetailHtml(rm) {
+    if (!rm) return `<div class="d-empty">Chạm vào bất kỳ ID phòng nào trên BXH hoặc sơ đồ để xem trạng thái.</div>`;
+    const canInvite = rm.alive && !rm.isUser;
     return `
       <div class="h-dhead">
-        <span>🚪 Phòng ${esc(rm.id)} • Tầng ${esc(rm.floor)} ${rm.isUser ? '<span class="h-badge-sm you">PHÒNG BẠN</span>' : ""}</span>
-        <span style="font-family:var(--mono);color:var(--accent);">${rm.rank ? "Hạng #" + rm.rank : "ĐÃ XÓA SỔ"}</span>
+        <span>🚪 ID Phòng: P.${esc(rm.id)} • Tầng ${esc(rm.floor)} ${rm.isUser ? '<span class="h-badge-sm you">PHÒNG BẠN</span>' : ""}</span>
+        <span style="font-family:var(--mono);color:${rm.alive ? "var(--accent)" : "var(--danger)"};">${rm.rank ? "Hạng #" + rm.rank : "💀 ĐÃ LOẠI BỎ"}</span>
       </div>
       <div class="h-dmeta">
-        <span>🏫 ${esc(rm.school)}</span>
-        <span>👥 Nhân số: ${esc(rm.count)}/4</span>
-        <span>📊 Tổng điểm phòng: <strong>${esc(rm.score)} đ</strong> (Điểm cá nhân: ẨN)</span>
+        <span>📊 Điểm BXH: <strong>${rm.alive ? esc(rm.score) + " đ" : "0 đ"}</strong></span>
+        <span>🎓 ${esc(rm.sub || "Ẩn danh")}</span>
+        <span>🔒 Danh tính: ${rm.isUser ? "Chính bạn" : "Chỉ hiển thị ID phòng"}</span>
       </div>
-      <div style="font-size:11.5px;color:${rm.count <= 0 ? "#ff8e91" : (rm.count <= 2 ? "#ffd28a" : "#7ef2b1")};">${roomStatusLabel(rm)}</div>
-      <div style="font-size:11.5px;color:var(--muted);">📝 ${esc(rm.note || "Không có ghi nhận bất thường.")}</div>
+      <div style="font-size:11.5px;color:var(--muted);">📝 ${esc(rm.note || "Chưa có ghi nhận tiếp xúc.")}</div>
+      ${canInvite ? `<div class="d-inv-actions"><button class="d-act-btn acc" data-cmd="/invite P.${esc(rm.id)}">✉️ Gửi lời mời ghép đội (/invite P.${esc(rm.id)})</button></div>` : ""}
     `;
   }
 
@@ -521,8 +661,8 @@
 
       const user = toObj(raw.user, {
         name: "Chưa định danh",
-        dorm: "Phòng ---",
-        school: "Đại học hạng ba",
+        dorm: "P.407",
+        school: "Khu 100 Phòng Đơn",
         rank: "Chưa định hạng",
         credits: 0,
         points: 0,
@@ -542,7 +682,6 @@
       const itemsList = toArr(user.items);
       const buffsList = toArr(user.buffs);
       const statsArr = Array.isArray(user.stats) ? user.stats : [10, 10, 10, 10];
-
       const clock = toObj(raw.clock, { time: "Ngày 1 • 22:00", countdown: "", status: "" });
       const dormMap = toObj(raw.dormMap, {
         door: "g", beds: "g", desk: "g", bath: "g", balcony: "g",
@@ -550,9 +689,10 @@
       });
 
       const team = toArr(raw.team).map(function (m, idx) {
-        if (typeof m === "string") return { name: m, bed: "G" + (idx + 1), inRoom: true, alive: true, hp: 100, maxHp: 100 };
-        return toObj(m, { name: "Thành viên " + (idx + 1), bed: "G" + (idx + 1), inRoom: true, alive: true, hp: 100, maxHp: 100, role: "Sinh viên" });
+        if (typeof m === "string") return { name: m, bed: idx === 0 ? "Đơn" : "Đội", inRoom: true, alive: true, hp: 100, maxHp: 100 };
+        return toObj(m, { name: "Thí sinh " + (idx + 1), bed: idx === 0 ? "Đơn" : "Đội", inRoom: true, alive: true, hp: 100, maxHp: 100, role: "Sinh viên" });
       });
+      const inExamSquad = team.length >= 2;
 
       const exam = toObj(raw.exam, {
         title: "Chưa kích hoạt bài kiểm tra",
@@ -565,12 +705,14 @@
       const examChoices = toArr(exam.choices);
       const examHistory = toArr(exam.history);
       const shop = toArr(raw.shop).filter(function (s) { return s && typeof s === "object"; });
+      const pendingInvites = toArr(raw.invites);
 
       const notifyData = toObj(raw.notify, {
         tag: "THÔNG BÁO ỨNG DỤNG",
         title: "",
         lines: [],
         showDots: false,
+        invite: null,
         choices: [],
         evaluation: null
       });
@@ -585,6 +727,7 @@
           return `<div class="d-n-line">${esc(l)}</div>`;
         }).join("");
         const dotsHtml = notifyData.showDots ? renderDots(team) : "";
+        const inviteHtml = renderInviteCards(notifyData.invite || notifyData.invites);
         const choicesHtml = renderChoices(notifyData.choices);
         const evalHtml = renderEval(notifyData.evaluation);
 
@@ -600,18 +743,38 @@
             <div class="d-n-body">
               ${notifyData.title ? `<div class="d-n-title">${esc(notifyData.title)}</div>` : ""}
               ${linesHtml}
+              ${inviteHtml}
               ${dotsHtml}
               ${choicesHtml ? `<div>${choicesHtml}</div>` : ""}
               ${evalHtml}
             </div>
             <div class="d-n-foot">
               <span>${esc(user.dorm)} • ${esc(user.school)}</span>
-              <span>Gõ /phone hoặc /map để mở App</span>
+              <span>Gõ /phone hoặc /rank để mở App</span>
             </div>
           </div>
+          <div class="d-toast" id="d-toast"></div>
         `;
+        const nToast = root.querySelector("#d-toast");
+        let ntId;
+        function nNotify(msg) {
+          if (!nToast) return;
+          nToast.textContent = msg;
+          nToast.style.display = "block";
+          clearTimeout(ntId);
+          ntId = setTimeout(function () { nToast.style.display = "none"; }, 2600);
+        }
         root.querySelectorAll(".d-choice").forEach(function (c) {
-          c.addEventListener("click", function () { c.classList.toggle("open"); });
+          c.addEventListener("click", function (ev) {
+            if (ev.target && ev.target.closest("[data-cmd]")) return;
+            c.classList.toggle("open");
+          });
+        });
+        root.querySelectorAll("[data-cmd]").forEach(function (btn) {
+          btn.addEventListener("click", function (ev) {
+            ev.stopPropagation();
+            copyCmd(btn.getAttribute("data-cmd"), nNotify);
+          });
         });
         return;
       }
@@ -623,7 +786,7 @@
       const zCodes = { g: "Xanh lá • An toàn", y: "Vàng • Dị thường", r: "Đỏ • Xâm nhập!" };
       const mapZones = [
         { key: "door", name: "🚪 Cửa chính", cls: "" },
-        { key: "beds", name: "🛏️ Khu Giường 1–4", cls: "span2" },
+        { key: "beds", name: "🛏️ Giường đơn cá nhân", cls: "span2" },
         { key: "desk", name: "📚 Bàn học & Tủ", cls: "" },
         { key: "bath", name: "🚰 Bồn rửa & WC", cls: "" },
         { key: "balcony", name: "🪟 Ban công", cls: "" }
@@ -646,30 +809,31 @@
       const dotsSideHtml = team.length
         ? team.map(function (m) {
             const cls = m.alive === false ? "dead" : (m.inRoom ? "in" : "");
-            return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(m.bed || "G?")}</span></div>`;
+            const shortLbl = extractRoomId(m.name) ? ("P." + extractRoomId(m.name)) : (m.bed || "Đơn");
+            return `<div class="d-dot-i" title="${esc(m.name)}"><div class="d-dot ${cls}"></div><span>${esc(shortLbl)}</span></div>`;
           }).join("")
         : `<div class="d-empty">Chưa có dữ liệu</div>`;
 
       const membersHtml = team.length
-        ? team.map(function (m) {
+        ? team.map(function (m, idx) {
             const alive = m.alive !== false;
             const p = pct(m.hp, m.maxHp || 100);
             const bCls = p <= 30 ? "low" : (p <= 65 ? "mid" : "");
-            const callOff = !alive || !isOfficial;
+            const callOff = !alive || !isOfficial || idx === 0;
             return `
               <div class="d-mcard ${alive ? "" : "dead"}">
                 <div class="d-mhead">
-                  <span>${alive ? (m.inRoom ? "⚪" : "⚫") : "💀"} ${esc(m.name)} <small style="color:var(--muted);font-weight:400;">(${esc(m.bed || "")})</small></span>
-                  <span class="d-call ${callOff ? "off" : ""}" data-call="${esc(m.name)}">📞</span>
+                  <span>${alive ? (m.inRoom ? "⚪" : "⚫") : "💀"} ${esc(m.name)}</span>
+                  ${idx > 0 ? `<span class="d-call ${callOff ? "off" : ""}" data-call="${esc(m.name)}">📞</span>` : `<span style="font-size:10px;font-family:var(--mono);color:var(--accent);">BẠN</span>`}
                 </div>
                 <div style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:4px;">
-                  <span>Vai trò: ${esc(m.role || "Sinh viên")}</span>
+                  <span>${inExamSquad ? "Vai trò: " : "Trạng thái: "}${esc(m.role || "Phòng đơn")}</span>
                   <span style="font-family:var(--mono);">${alive ? esc(m.hp + "/" + (m.maxHp || 100)) : "ĐÃ MẤT"}</span>
                 </div>
                 <div class="d-bar"><div class="d-fill ${bCls}" style="width:${alive ? p : 0}%;"></div></div>
               </div>`;
           }).join("")
-        : `<div class="d-empty">Chưa khởi tạo đội phòng ngủ.</div>`;
+        : `<div class="d-empty">Chưa khởi tạo trạng thái sinh viên.</div>`;
 
       const missionsHtml = missionsList.length
         ? missionsList.map(function (ms) {
@@ -680,8 +844,12 @@
           }).join("")
         : `<div class="d-empty">Hiện chưa có nhiệm vụ nào được kích hoạt.</div>`;
 
+      const pendingInvBlock = pendingInvites.length
+        ? `<div class="d-card"><div class="d-ctitle"><span>Lời mời ghép đội đang chờ</span><span>${pendingInvites.length} lời mời</span></div><div style="display:flex;flex-direction:column;gap:8px;">${renderInviteCards(pendingInvites)}</div></div>`
+        : "";
+
       const choicesBlock = examChoices.length
-        ? `<div class="d-card"><div class="d-ctitle"><span>Đề thi đang mở (Bấm để xem chú thích)</span></div>${renderChoices(examChoices)}</div>`
+        ? `<div class="d-card"><div class="d-ctitle"><span>Học phần đang mở (Bấm để xem & ghép đội)</span></div>${renderChoices(examChoices)}</div>`
         : "";
 
       const evalBlock = exam.evaluation
@@ -720,7 +888,6 @@
       }).join("");
 
       const userPts = parseNum(user.points, 0);
-
       const shopHtml = shop.length
         ? shop.map(function (it) {
             const rawPrice = it.price != null ? it.price : (it.cost != null ? it.cost : (it.points != null ? it.points : it.point));
@@ -738,26 +905,19 @@
           }).join("")
         : `<div class="d-empty">Cửa hàng hiện đang đóng hoặc chưa tải danh mục.</div>`;
 
-      // === BUILD 30-ROOM HUB DATA ===
-      const hub = buildHubRooms(raw.hubRooms, user);
-      const aliveRooms = hub.list.filter(function (r) { return r.count > 0; }).length;
-      const totalAliveStudents = hub.list.reduce(function (acc, r) { return acc + r.count; }, 0);
-      const mergeAlertRooms = hub.list.filter(function (r) { return r.count === 1 || r.count === 2; }).length;
+      // === BUILD 100-SURVIVOR INDIVIDUAL HUB DATA ===
+      const hub = buildHub100(raw.hubRooms, user, raw);
       const userHubRoom = hub.byId[hub.userRoomId] || hub.ranked[0];
-      const userRankText = userHubRoom && userHubRoom.rank ? ("#" + userHubRoom.rank) : (user.rank || "--");
-      const userRoomScoreText = userHubRoom ? (userHubRoom.score + " đ") : "--";
+      const userRankText = userHubRoom && userHubRoom.rank ? ("#" + userHubRoom.rank + "/" + hub.aliveCount) : (user.rank || "--");
+      const userScoreText = userHubRoom ? (userHubRoom.score + " đ") : "--";
 
       function buildFloorHtml(floorNum) {
         const roomsOnFloor = hub.list.filter(function (r) { return r.floor === floorNum; });
-        const topRow = roomsOnFloor.slice(0, 3);
-        const botRow = roomsOnFloor.slice(3, 6);
+        const topRow = roomsOnFloor.slice(0, 10);
+        const botRow = roomsOnFloor.slice(10, 20);
         function cell(rm) {
-          const stCls = roomStatusClass(rm);
-          const pipCls = rm.count <= 0 ? "dead" : (rm.count === 1 ? "crit" : (rm.count === 2 ? "warn" : "safe"));
+          const stCls = !rm.alive ? "st-dead" : (rm.rank && rm.rank <= 10 ? "st-top" : "st-safe");
           const rkCls = rm.rank && rm.rank <= 3 ? "top3" : "";
-          const badge = rm.isUser
-            ? `<span class="h-badge-sm you">BẠN</span>`
-            : (rm.count === 1 || rm.count === 2 ? `<span class="h-badge-sm merge">GHÉP!</span>` : "");
           return `
             <div class="h-room ${stCls} ${rm.isUser ? "is-user" : ""}" data-rid="${esc(rm.id)}">
               <div class="h-rtop">
@@ -765,57 +925,54 @@
                 <span class="h-rk ${rkCls}">${rm.rank ? "#" + rm.rank : "✕"}</span>
               </div>
               <div class="h-rmid">
-                <span class="h-pips ${pipCls}">${pipsStr(rm.count)}</span>
-                <span class="h-sc">${rm.count > 0 ? esc(rm.score) + "đ" : "--"}</span>
-              </div>
-              <div class="h-rbot">
-                <span style="overflow:hidden;text-overflow:ellipsis;">${esc(rm.school)}</span>
-                ${badge}
+                <span>${rm.alive ? (rm.isUser ? "BẠN" : "● Sống") : "✕ Loại"}</span>
+                <span class="h-sc">${rm.alive ? esc(rm.score) + "đ" : "--"}</span>
               </div>
             </div>`;
         }
         return `
           <div class="h-floor" data-floor="${floorNum}">
             <div class="h-fl-head">
-              <span>▓ TẦNG ${floorNum} — KHU NỘI TRÚ LIÊN HỢP</span>
-              <span>${roomsOnFloor.filter(function (r) { return r.count > 0; }).length}/${roomsOnFloor.length} phòng còn sống</span>
+              <span>▓ TẦNG ${floorNum} — 20 PHÒNG ĐƠN</span>
+              <span>${roomsOnFloor.filter(function (r) { return r.alive; }).length}/${roomsOnFloor.length} còn sống</span>
             </div>
-            <div class="h-row">${topRow.map(cell).join("")}</div>
+            <div class="h-solo-grid">${topRow.map(cell).join("")}</div>
             <div class="h-corridor">
               <span>╠══ HÀNH LANG TẦNG ${floorNum} ══</span>
               <span>CẦU THANG • BẢNG TIN ══╣</span>
             </div>
-            <div class="h-row">${botRow.map(cell).join("")}</div>
+            <div class="h-solo-grid">${botRow.map(cell).join("")}</div>
           </div>`;
       }
 
       const allFloorsHtml = [5, 4, 3, 2, 1].map(buildFloorHtml).join("");
 
       function buildRankRows(filterMode) {
+        const uRank = (userHubRoom && userHubRoom.rank) || 75;
         return hub.ranked.filter(function (rm) {
-          if (filterMode === "merge") return rm.count === 1 || rm.count === 2;
-          if (filterMode === "open") return rm.count === 3;
+          if (filterMode === "alive") return rm.alive;
+          if (filterMode === "top20") return rm.alive && rm.rank <= 20;
+          if (filterMode === "near") return rm.alive && Math.abs(rm.rank - uRank) <= 10;
+          if (filterMode === "dead") return !rm.alive;
           return true;
         }).map(function (rm) {
-          const stCls = roomStatusClass(rm);
-          const statusShort = rm.count <= 0 ? "💀 Xóa sổ" : (rm.count <= 2 ? "⚠️ Cần ghép" : (rm.count === 3 ? "🟡 Thiếu 1" : "🟢 Đủ"));
+          const stShort = rm.alive ? "🟢 Còn sống" : "💀 Đã loại bỏ";
           return `
-            <tr class="${stCls} ${rm.isUser ? "is-user" : ""}" data-rid="${esc(rm.id)}">
+            <tr class="${rm.alive ? "" : "st-dead"} ${rm.isUser ? "is-user" : ""}" data-rid="${esc(rm.id)}">
               <td style="font-family:var(--mono);font-weight:700;color:${rm.rank && rm.rank <= 3 ? "#ffd666" : "var(--muted)"};">${rm.rank ? "#" + rm.rank : "—"}</td>
               <td style="font-family:var(--mono);font-weight:700;">P.${esc(rm.id)} ${rm.isUser ? '<span class="h-badge-sm you">BẠN</span>' : ""}</td>
-              <td>${esc(rm.school)}</td>
-              <td style="font-family:var(--mono);">${esc(rm.count)}/4</td>
-              <td style="font-family:var(--mono);font-weight:700;color:var(--accent);">${rm.count > 0 ? esc(rm.score) + " đ" : "0 đ"}</td>
-              <td style="font-size:11px;">${statusShort}</td>
+              <td style="font-family:var(--mono);">${esc(rm.sub)}</td>
+              <td style="font-family:var(--mono);font-weight:700;color:var(--accent);">${rm.alive ? esc(rm.score) + " đ" : "0 đ"}</td>
+              <td style="font-size:11px;">${stShort}</td>
             </tr>`;
-        }).join("") || `<tr><td colspan="6" class="d-empty" style="text-align:center;padding:10px;">Không có phòng nào khớp bộ lọc.</td></tr>`;
+        }).join("") || `<tr><td colspan="5" class="d-empty" style="text-align:center;padding:10px;">Không có ID phòng nào khớp bộ lọc.</td></tr>`;
       }
 
       const limbsOk = String(user.limbs || "").toLowerCase().includes("lành");
       const validTabs = isOfficial ? ["dorm", "exam", "skill", "body", "help", "shop", "map"] : ["dorm", "exam", "skill", "body"];
       const reqTab = raw.activeTab === "rank" ? "map" : raw.activeTab;
       const initTab = validTabs.includes(reqTab) ? reqTab : "dorm";
-      const initMapSub = raw.activeTab === "rank" ? "rank" : "grid";
+      const initMapSub = raw.activeTab === "map" ? "grid" : "rank";
 
       root.innerHTML = `
         <div class="dorm-wrap mode-${mode}">
@@ -831,40 +988,42 @@
             <aside class="d-side">
               <div class="d-id">
                 <div class="d-name">${esc(user.name)}</div>
-                <div class="d-sub">${esc(user.dorm)} • ${esc(user.school)}</div>
+                <div class="d-sub">ID: P.${esc(hub.userRoomId)} • ${esc(user.school)}</div>
                 <div class="d-curr-row">
                   <div class="d-curr"><div class="d-curr-l">Học phần</div><div class="d-curr-v">${esc(user.credits)}/100</div></div>
                   <div class="d-curr" style="${isOfficial ? "" : "opacity:0.45;"}"><div class="d-curr-l">Tích lũy</div><div class="d-curr-v acc">${isOfficial ? esc(user.points) + " đ" : "KHÓA"}</div></div>
                 </div>
               </div>
               <div class="d-dots-box">
-                <div class="d-mini-t"><span>Thành viên phòng</span><span>${esc(isOfficial ? userRankText : user.rank)}</span></div>
+                <div class="d-mini-t"><span>${inExamSquad ? "Tổ đội phó bản" : "Trạng thái cá nhân"}</span><span>${esc(isOfficial ? userRankText : user.rank)}</span></div>
                 <div class="d-dots">${dotsSideHtml}</div>
               </div>
               <nav class="d-nav">
-                <button class="d-nav-btn ${initTab === "dorm" ? "active" : ""}" data-tab="dorm"><span>🏠 Tình hình phòng ngủ</span><span class="d-nav-tag">01</span></button>
-                <button class="d-nav-btn ${initTab === "exam" ? "active" : ""}" data-tab="exam"><span>📝 Kiểm tra / Thi đấu</span><span class="d-nav-tag">02</span></button>
+                <button class="d-nav-btn ${initTab === "dorm" ? "active" : ""}" data-tab="dorm"><span>🏠 Phòng đơn & Đội</span><span class="d-nav-tag">01</span></button>
+                <button class="d-nav-btn ${initTab === "exam" ? "active" : ""}" data-tab="exam"><span>📝 Học phần & Ghép đội</span><span class="d-nav-tag">02</span></button>
                 <button class="d-nav-btn ${initTab === "skill" ? "active" : ""}" data-tab="skill"><span>✨ Đạo cụ / Dị năng</span><span class="d-nav-tag">03</span></button>
                 <button class="d-nav-btn ${initTab === "body" ? "active" : ""}" data-tab="body"><span>🩺 Thông tin cơ thể</span><span class="d-nav-tag">04</span></button>
                 <button class="d-nav-btn ${isOfficial ? (initTab === "help" ? "active" : "") : "locked"}" data-tab="help"><span>📖 Giải đáp thắc mắc</span><span class="d-nav-tag">${isOfficial ? "05" : "🔒"}</span></button>
                 <button class="d-nav-btn ${isOfficial ? (initTab === "shop" ? "active" : "") : "locked"}" data-tab="shop"><span>🛒 Cửa hàng sinh viên</span><span class="d-nav-tag">${isOfficial ? "06" : "🔒"}</span></button>
-                <button class="d-nav-btn ${isOfficial ? (initTab === "map" ? "active" : "") : "locked"}" data-tab="map"><span>🗺️ Khu 30 Phòng & BXH</span><span class="d-nav-tag">${isOfficial ? "07" : "🔒"}</span></button>
+                <button class="d-nav-btn ${isOfficial ? (initTab === "map" ? "active" : "") : "locked"}" data-tab="map"><span>🏆 BXH 100 & Khu Phòng</span><span class="d-nav-tag">${isOfficial ? "07" : "🔒"}</span></button>
               </nav>
             </aside>
             <main class="d-main">
               <section class="d-pane ${initTab === "dorm" ? "active" : ""}" id="dp-dorm">
+                ${pendingInvBlock}
                 <div class="d-card">
-                  <div class="d-ctitle"><span>Bản đồ an toàn phòng ngủ</span><span style="color:${safetyMeta.col};">${safetyMeta.txt}</span></div>
+                  <div class="d-ctitle"><span>Bản đồ an toàn phòng đơn (P.${esc(hub.userRoomId)})</span><span style="color:${safetyMeta.col};">${safetyMeta.txt}</span></div>
                   <div class="d-bp">${mapHtml}</div>
                   <div class="d-cap ${safetyMeta.cap}">${esc(dormMap.note)}</div>
                 </div>
                 <div class="d-card">
-                  <div class="d-ctitle"><span>Trạng thái các thành viên</span><span style="font-size:10px;color:var(--muted);">⚪ Trong phòng • ⚫ Ngoài phòng</span></div>
-                  <div class="d-mlist">${membersHtml}</div>
+                  <div class="d-ctitle"><span>${inExamSquad ? "Tổ đội phó bản hiện tại (" + team.length + " người)" : "Trạng thái cá nhân (Ngoài phó bản)"}</span><span style="font-size:10px;color:var(--muted);">⚪ An toàn • ⚫ Ngoài phòng</span></div>
+                  <div class="d-mlist ${inExamSquad ? "" : "solo"}">${membersHtml}</div>
                 </div>
               </section>
 
               <section class="d-pane ${initTab === "exam" ? "active" : ""}" id="dp-exam">
+                ${pendingInvBlock}
                 <div class="d-card">
                   <div class="d-ctitle"><span>${esc(exam.title)}</span><span style="font-size:10px;color:var(--muted);">${esc(clock.status)}</span></div>
                   ${missionsHtml}
@@ -903,16 +1062,16 @@
                 <div class="d-card">
                   <div class="d-ctitle"><span>Sổ tay Sinh viên chính thức</span></div>
                   <details class="d-acc" open>
-                    <summary>🛡️ Khu Nội Trú Liên Hợp 30 Phòng & Giờ An Toàn</summary>
-                    <p>30 phòng KTX sống sót toàn quốc được hợp nhất vào tòa nhà 5 tầng (101–506). Từ 20:00 đến 08:00 sáng hôm sau (và cả ngày Chủ Nhật) là Giờ An Toàn: được tự do đi lại hành lang, giao lưu, trao đổi và xin chuyển/ghép phòng. Mọi sinh viên bắt buộc thuộc một phòng có tối thiểu 3 người còn sống trước mốc 08:00; phòng tụt xuống 1–2 người buộc phải ghép phòng hoặc bị xóa sổ.</p>
+                    <summary>🏆 BXH 100 Cá Nhân Theo ID Phòng & Tổ Chức Đồng Minh</summary>
+                    <p>100 thí sinh vượt qua Đêm 1 và Sinh Hoạt Đầu Khóa sở hữu 100 phòng đơn (P.101–P.520). BXH cập nhật MỖI NGÀY lúc 20:00, hiển thị ẩn danh hoàn toàn theo ID số phòng và tự động loại bỏ người chết để tính lại thứ hạng. Trong Giờ An Toàn (20:00–08:00 &amp; Chủ Nhật), sinh viên có thể tự do lập Tổ chức đồng minh và trao đổi thông tin.</p>
                   </details>
                   <details class="d-acc">
-                    <summary>📋 Quy tắc Kiểm tra, Trượt môn & Đặc quyền MVP</summary>
-                    <p>Thứ Hai – Thứ Sáu lúc 08:00 mở 2–3 Quyển đề thi (đếm ngược 15 phút). Đạt &lt; 1 bài/tuần bị xóa sổ; đạt &ge; 3 bài/tuần mở Thi đấu ngoại khóa Thứ Bảy. Điểm tập thể &lt; 60 hoặc cá nhân Kém tính trượt môn (trừ 1 Học phần &amp; kích hoạt Phụ Đạo Đêm). Riêng MVP mỗi bài thi nhận thưởng Điểm tích lũy vượt trội, Buff đặc quyền cá nhân và 1 giấy 'Loại trừ rớt tín chỉ' cá nhân.</p>
+                    <summary>🎲 Học Phần Nhóm &amp; Cơ Chế Ghép Đội (/match, /random, /invite)</summary>
+                    <p>Thứ Hai – Thứ Sáu lúc 08:00 mở 2–3 Học phần kèm Sĩ số yêu cầu (1–4 người) và lượng người đang chờ ghép. Sinh viên chọn Ghép ngẫu nhiên (/random) hoặc gửi lời mời ghép đội (/invite [ID Phòng]). Bên nhận lời mời có toàn quyền /join hoặc /deny dựa trên thứ hạng, độ tin cậy và điều kiện trao đổi.</p>
                   </details>
                   <details class="d-acc">
-                    <summary>🏆 BXH Tổng Điểm Phòng & Tốt Nghiệp 100 Học Phần</summary>
-                    <p>BXH xếp hạng 30 phòng theo TỔNG ĐIỂM PHÒNG (biến động trực tiếp theo người chuyển đi, chuyển đến hoặc tử vong; điểm từng cá nhân được giữ bí mật). Học phần tính theo cá nhân — ai đạt đủ 100 Học phần sẽ mở riêng Bài thi tốt nghiệp để thoát ly vĩnh viễn.</p>
+                    <summary>📋 Trượt Môn, Đặc Quyền MVP &amp; Tốt Nghiệp 100 Học Phần</summary>
+                    <p>Đạt &lt; 1 bài/tuần bị loại bỏ; đạt &ge; 3 bài/tuần mở Thi đấu ngoại khóa Thứ Bảy. Điểm &lt; 60 hoặc đánh giá cá nhân Kém bị trừ 1 Học phần và kích hoạt Phụ Đạo Đêm. Duy nhất MVP nhận thưởng Điểm tích lũy lớn, Buff ngắn hạn và 1 giấy 'Loại trừ rớt tín chỉ' cá nhân. Đạt đủ 100 Học phần mở Bài thi tốt nghiệp.</p>
                   </details>
                   <button class="d-csbtn" id="d-cs-btn">💬 Chăm sóc khách hàng online (Tiêu hao 1 Học phần)</button>
                 </div>
@@ -927,17 +1086,24 @@
 
               <section class="d-pane ${initTab === "map" ? "active" : ""}" id="dp-map">
                 <div class="h-kpi">
-                  <div class="h-ktile"><div class="h-knum">${aliveRooms}/30</div><div class="h-klbl">Phòng còn sống</div></div>
-                  <div class="h-ktile"><div class="h-knum">${totalAliveStudents}/120</div><div class="h-klbl">Tổng sinh viên</div></div>
-                  <div class="h-ktile"><div class="h-knum warn">${mergeAlertRooms} phòng</div><div class="h-klbl">Cần ghép (≤2)</div></div>
-                  <div class="h-ktile"><div class="h-knum acc">${esc(userRankText)}</div><div class="h-klbl">Hạng (${esc(userRoomScoreText)})</div></div>
+                  <div class="h-ktile"><div class="h-knum">${hub.aliveCount}/100</div><div class="h-klbl">Còn sống</div></div>
+                  <div class="h-ktile"><div class="h-knum warn">${hub.deadCount}</div><div class="h-klbl">Đã loại bỏ</div></div>
+                  <div class="h-ktile"><div class="h-knum acc">${esc(userRankText)}</div><div class="h-klbl">Hạng của bạn</div></div>
+                  <div class="h-ktile"><div class="h-knum">${esc(userScoreText)}</div><div class="h-klbl">Điểm BXH (P.${esc(hub.userRoomId)})</div></div>
                 </div>
 
                 <div class="d-card" style="display:flex;flex-direction:column;gap:10px;">
                   <div class="h-toolbar">
                     <div class="h-pills" id="h-mode-pills">
+                      <button class="h-pill ${initMapSub === "rank" ? "active" : ""}" data-hview="rank">🏆 BXH 100 Cá nhân</button>
                       <button class="h-pill ${initMapSub === "grid" ? "active" : ""}" data-hview="grid">🗺️ Sơ đồ 5 tầng</button>
-                      <button class="h-pill ${initMapSub === "rank" ? "active" : ""}" data-hview="rank">🏆 BXH Tổng điểm</button>
+                    </div>
+                    <div class="h-pills" id="h-rank-pills" style="${initMapSub === "rank" ? "" : "display:none;"}">
+                      <button class="h-pill active" data-rf="alive">Còn sống (${hub.aliveCount})</button>
+                      <button class="h-pill" data-rf="top20">Top 20</button>
+                      <button class="h-pill" data-rf="near">Gần hạng bạn</button>
+                      <button class="h-pill" data-rf="dead">Đã loại (${hub.deadCount})</button>
+                      <button class="h-pill" data-rf="all">Tất cả 100</button>
                     </div>
                     <div class="h-pills" id="h-floor-pills" style="${initMapSub === "grid" ? "" : "display:none;"}">
                       <button class="h-pill active" data-fl="all">Tất cả</button>
@@ -947,33 +1113,30 @@
                       <button class="h-pill" data-fl="2">T2</button>
                       <button class="h-pill" data-fl="1">T1</button>
                     </div>
-                    <div class="h-pills" id="h-rank-pills" style="${initMapSub === "rank" ? "" : "display:none;"}">
-                      <button class="h-pill active" data-rf="all">30 Phòng</button>
-                      <button class="h-pill" data-rf="merge">⚠️ Cần ghép (≤2)</button>
-                      <button class="h-pill" data-rf="open">🟡 Còn chỗ (3/4)</button>
-                    </div>
                   </div>
 
-                  <div class="h-detail" id="h-room-detail">${renderRoomDetailHtml(userHubRoom)}</div>
+                  <div class="h-detail" id="h-room-detail">${renderSoloDetailHtml(userHubRoom)}</div>
+
+                  <div id="h-view-rank" style="${initMapSub === "rank" ? "" : "display:none;"}">
+                    <div class="h-table-wrap">
+                      <table class="h-table">
+                        <thead>
+                          <tr><th>Hạng</th><th>ID Phòng</th><th>Tiến độ</th><th>Điểm BXH</th><th>Trạng thái</th></tr>
+                        </thead>
+                        <tbody id="h-rank-tbody">${buildRankRows("alive")}</tbody>
+                      </table>
+                    </div>
+                  </div>
 
                   <div id="h-view-grid" style="${initMapSub === "grid" ? "" : "display:none;"}">
                     <div class="h-floor-wrap">${allFloorsHtml}</div>
                     <div class="h-legend" style="margin-top:8px;">
-                      <span>🟢 3–4 người</span>
-                      <span>🟠 2 người (Ghép!)</span>
-                      <span>🔴 1 người (Nguy cấp)</span>
-                      <span>✕ 0 người (Xóa sổ)</span>
-                      <span>• Điểm cá nhân: ẨN</span>
+                      <span>🟡 Top 10</span>
+                      <span>🟢 Còn sống</span>
+                      <span>🔴 Phòng bạn</span>
+                      <span>✕ Đã loại bỏ</span>
+                      <span>• Tên thật: ẨN</span>
                     </div>
-                  </div>
-
-                  <div id="h-view-rank" style="${initMapSub === "rank" ? "" : "display:none;"}overflow-x:auto;">
-                    <table class="h-table">
-                      <thead>
-                        <tr><th>Hạng</th><th>Phòng</th><th>Khối trường</th><th>Nhân số</th><th>Tổng điểm</th><th>Trạng thái</th></tr>
-                      </thead>
-                      <tbody id="h-rank-tbody">${buildRankRows("all")}</tbody>
-                    </table>
                   </div>
                 </div>
               </section>
@@ -993,10 +1156,20 @@
         tId = setTimeout(function () { toast.style.display = "none"; }, 2600);
       }
 
+      function bindCmdButtons(scope) {
+        (scope || root).querySelectorAll("[data-cmd]").forEach(function (btn) {
+          btn.addEventListener("click", function (ev) {
+            ev.stopPropagation();
+            copyCmd(btn.getAttribute("data-cmd"), notify);
+          });
+        });
+      }
+      bindCmdButtons(root);
+
       root.querySelectorAll(".d-nav-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
           if (btn.classList.contains("locked")) {
-            notify("Chưa mở khóa! Cần vượt qua màn Tân thủ để thành Sinh viên chính thức.");
+            notify("Chưa mở khóa! Cần vượt qua Sinh Hoạt Đầu Khóa để thành Sinh viên chính thức.");
             return;
           }
           root.querySelectorAll(".d-nav-btn").forEach(function (b) { b.classList.remove("active"); });
@@ -1011,11 +1184,14 @@
         z.addEventListener("click", function () { notify(z.dataset.zmsg); });
       });
       root.querySelectorAll(".d-choice").forEach(function (c) {
-        c.addEventListener("click", function () { c.classList.toggle("open"); });
+        c.addEventListener("click", function (ev) {
+          if (ev.target && ev.target.closest("[data-cmd]")) return;
+          c.classList.toggle("open");
+        });
       });
       root.querySelectorAll(".d-call:not(.off)").forEach(function (c) {
         c.addEventListener("click", function () {
-          notify("Gõ /call " + c.dataset.call + " trong khung chat để liên lạc.");
+          copyCmd("/call " + c.dataset.call, notify);
         });
       });
 
@@ -1038,7 +1214,8 @@
             root.querySelectorAll(".h-room.sel").forEach(function (x) { x.classList.remove("sel"); });
             const card = root.querySelector('.h-room[data-rid="' + rid + '"]');
             if (card) card.classList.add("sel");
-            detailEl.innerHTML = renderRoomDetailHtml(rm);
+            detailEl.innerHTML = renderSoloDetailHtml(rm);
+            bindCmdButtons(detailEl);
           });
         });
       }
