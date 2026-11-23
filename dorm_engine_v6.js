@@ -79,7 +79,7 @@
     }
 
     function parseCreditVal(subStr, fallbackCr) {
-      const m = String(subStr || "").match(/(\d+)\s*(?:hp|học\s*phần)/i);
+      const m = String(subStr || "").match(/(\d+)\s*(?:hp|h\.?\s*phần|học\s*phần|tc)/i);
       if (m) return Math.max(0, parseInt(m[1], 10));
       return fallbackCr;
     }
@@ -87,7 +87,6 @@
     const userRoomId = extractRoomId(user && user.dorm) || "407";
     const userCredits = Math.max(0, parseNum(user && user.credits, 0));
     const userPoints = Math.max(0, parseNum(user && user.points, 0));
-    // Điểm mặc định bám sát điểm tích lũy thực tế thay vì nhân 30 ảo
     const defaultUserScore = userPoints > 0 ? userPoints : (userCredits > 0 ? userCredits * 5 : 0);
 
     // Optional explicit dead room IDs array
@@ -104,7 +103,7 @@
     });
 
     // Parse AI-supplied notable entries in hubRooms
-    // Format: "P.501|1(Sống)/0(Chết)|Điểm|Học phần hoặc Nhãn|Ghi chú ẩn danh"
+    // Format: "P.501|1(Sống)/0(Chết)|Điểm|Số học phần|Ghi chú ẩn danh"
     toArr(rawHub).forEach(function (entry) {
       let item = null;
       if (typeof entry === "string") {
@@ -174,7 +173,7 @@
       }
     });
 
-    // Anchor user's solo room & chống lỗi AI ghi nhầm máu "100 HP" thay cho số Học phần
+    // Anchor user's solo room — luôn đồng bộ đúng userCredits (chống lỗi 100 HP)
     if (!map[userRoomId]) {
       const fl = Math.min(5, Math.max(1, parseInt(userRoomId.charAt(0), 10) || 4));
       const replaceId = String(fl * 100 + 7);
@@ -191,7 +190,7 @@
         alive: true,
         score: defaultUserScore,
         creditsNum: userCredits,
-        sub: userCredits + " HP",
+        sub: userCredits + " H.phần",
         note: "Phòng đơn của bạn.",
         isUser: true,
         explicit: true
@@ -202,10 +201,7 @@
       u.alive = true;
       if (u.score == null) u.score = defaultUserScore;
       u.creditsNum = userCredits;
-      const subCr = parseCreditVal(u.sub, null);
-      if (!u.sub || u.sub === "Chưa rõ" || (subCr != null && subCr !== userCredits)) {
-        u.sub = userCredits + " HP";
-      }
+      u.sub = userCredits + " H.phần";
       if (!u.explicit) u.note = "Phòng đơn của bạn.";
       u.explicit = true;
     }
@@ -240,54 +236,73 @@
       return id !== userRoomId && map[id].explicit && map[id].alive;
     });
 
-    // 1) Trần Học phần (maxCredits): bám đúng số học phần thực tế đã trôi qua
-    // Nếu mới xong World 0 (userCredits = 1) và không có NPC hợp lệ nhiều HP hơn -> toàn bộ là 1 HP
+    // 1) Trần Học phần hợp lệ: sửa lỗi Math.max -> Math.min để loại sạch các giá trị ghi nhầm Máu (100/105 HP)
+    const maxPlausibleCredits = Math.min(100, Math.max(1, userCredits) + 5);
     let maxCredits = Math.max(1, userCredits);
     explicitAliveNPCs.forEach(function (id) {
       const c = map[id].creditsNum;
-      // Chặn trường hợp AI gõ nhầm máu (vd 100 HP) khi user mới ở đầu game
-      if (c != null && c >= 1 && c <= Math.max(userCredits + 3, 100)) {
+      if (c != null && c >= 1 && c <= maxPlausibleCredits) {
         if (c > maxCredits) maxCredits = c;
       }
     });
 
-    // 2) Trần Điểm lý thuyết (ceilingScore): lấy theo Top NPC thực tế, tuyệt đối KHÔNG +60 ảo
+    // 2) Trần Điểm & Điểm sàn thực tế
     const explicitMaxScore = explicitAliveNPCs.reduce(function (mx, id) {
       return Math.max(mx, map[id].score || 0);
     }, 0);
 
-    // Mỗi học phần bình thường tối đa ~20đ (MVP hoàn hảo)
     const naturalCap = Math.max(20, maxCredits * 20);
     const ceilingScore = explicitMaxScore > 0
       ? Math.max(explicitMaxScore, userScore)
       : Math.max(naturalCap, userScore + (userScore < naturalCap ? 2 : 0));
 
-    // Điểm sàn thực tế cho người vừa đủ qua môn (khoảng 4đ cho 1 HP)
     const minScore = Math.max(1, Math.min(userScore > 0 ? userScore : 4, maxCredits * 4));
-    // Nếu AI đã chỉ định Top 1 rõ ràng trong hubRooms, phòng tự sinh tối đa bằng ceilingScore - 1 (hoặc bằng ceilingScore nếu khoảng quá hẹp) để không đè Top 1 của AI
-    const fillerMaxScore = explicitMaxScore > 0
-      ? Math.max(minScore, ceilingScore - (ceilingScore - minScore >= 4 ? 1 : 0))
-      : ceilingScore;
 
-    // 3) Phân phối điểm tự nhiên theo đường cong (phần đông đạt thường, số ít chạm nhóm MVP, cho phép TRÙNG ĐIỂM)
+    function calcCredits(sc) {
+      if (maxCredits <= 1) return 1;
+      const byRatio = Math.round((sc / Math.max(1, ceilingScore)) * maxCredits);
+      const byFloor = Math.ceil(sc / 25);
+      return Math.max(1, Math.min(maxCredits, Math.max(byRatio, byFloor)));
+    }
+
+    // Nắn lại các NPC trong hubRooms nếu AI lỡ ghi nhầm Máu (vd 105 HP) hoặc để trống số Học phần
+    explicitAliveNPCs.forEach(function (id) {
+      const rm = map[id];
+      if (rm.score == null) rm.score = Math.max(minScore, Math.round(ceilingScore * 0.5));
+      if (rm.creditsNum == null || rm.creditsNum < 1 || rm.creditsNum > maxPlausibleCredits) {
+        rm.creditsNum = calcCredits(rm.score);
+      }
+      rm.sub = rm.creditsNum + " H.phần";
+    });
+
+    // 3) Khóa trần phòng tự sinh dưới nhóm Top 1–3 mà AI khai báo (tránh filler cướp hạng Top 2, Top 3)
+    const explicitTopCandidates = explicitAliveNPCs
+      .map(function (id) { return map[id]; })
+      .filter(function (rm) { return (rm.score || 0) >= userScore && (rm.score || 0) > 0; })
+      .sort(function (a, b) { return (b.score || 0) - (a.score || 0); })
+      .slice(0, 3);
+
+    let fillerMaxScore;
+    if (explicitTopCandidates.length > 0) {
+      const lowestTop = explicitTopCandidates[explicitTopCandidates.length - 1].score || ceilingScore;
+      fillerMaxScore = Math.max(minScore, lowestTop - (lowestTop - minScore >= 2 ? 1 : 0));
+    } else {
+      fillerMaxScore = ceilingScore;
+    }
+
+    // 4) Phân phối điểm tự nhiên cho các phòng tự sinh (cho phép TRÙNG ĐIỂM)
     const aliveFillers = fillerIds.filter(function (id) { return map[id].alive; });
     aliveFillers.forEach(function (id) {
       const rm = map[id];
       const u = (hashNum("S-" + id) % 10000) / 10000;
-      // Lũy thừa 2.2: ~80-85% tụ ở nhóm điểm trung bình-khá, ~15-20% chạm nhóm điểm cao/MVP và tự nhiên trùng điểm nhau
       const skewed = Math.pow(u, 2.2);
       const sc = Math.round(minScore + skewed * Math.max(0, fillerMaxScore - minScore));
       rm.score = Math.max(minScore, Math.min(fillerMaxScore, sc));
-
-      // Gán số Học phần khớp tỷ lệ với trần maxCredits (sau World 0 thì maxCredits = 1 => 100% là 1 HP)
-      const cr = maxCredits <= 1
-        ? 1
-        : Math.max(1, Math.min(maxCredits, Math.round((rm.score / Math.max(1, ceilingScore)) * maxCredits)));
-      rm.creditsNum = cr;
-      rm.sub = cr + " HP";
+      rm.creditsNum = calcCredits(rm.score);
+      rm.sub = rm.creditsNum + " H.phần";
     });
 
-    // 4) Bảo toàn luật >= 2 NPC ở nhóm dẫn đầu nhưng KHÔNG BAO GIỜ VƯỢT TRẦN ceilingScore
+    // 5) Bảo toàn luật >= 2 NPC dẫn đầu nhưng không bao giờ vượt trần ceilingScore
     const list = order.map(function (id) { return map[id]; });
     const aboveOrTiedAtTop = list.filter(function (r) {
       return !r.isUser && r.alive && (r.score > userScore || (r.score === userScore && userScore >= ceilingScore));
@@ -295,19 +310,19 @@
     if (aboveOrTiedAtTop.length < 2) {
       const needTop = 2 - aboveOrTiedAtTop.length;
       const candidates = list
-        .filter(function (r) { return !r.isUser && r.alive && !r.explicit && r.score <= userScore; })
+        .filter(function (r) { return !r.isUser && r.alive && !r.explicit && aboveOrTiedAtTop.indexOf(r) === -1; })
         .sort(function (a, b) { return b.score - a.score; });
       for (let k = 0; k < needTop && k < candidates.length; k++) {
         const bumped = Math.min(ceilingScore, Math.max(userScore, ceilingScore - k));
         candidates[k].score = bumped;
-        candidates[k].creditsNum = maxCredits;
-        candidates[k].sub = maxCredits + " HP";
+        candidates[k].creditsNum = calcCredits(bumped);
+        candidates[k].sub = candidates[k].creditsNum + " H.phần";
       }
     }
 
     const totalAliveNow = list.filter(function (r) { return r.alive; }).length;
 
-    // Sort: Sống trước -> Điểm cao xuống thấp -> Học phần cao xuống thấp -> Đồng điểm thì NPC xếp trước (tie-breaker) -> ID phòng tăng dần
+    // Sort: Sống trước -> Điểm cao xuống thấp -> Học phần cao xuống thấp -> Đồng điểm thì NPC trước -> ID phòng tăng dần
     const ranked = list.slice().sort(function (a, b) {
       if (a.alive !== b.alive) return a.alive ? -1 : 1;
       if (b.score !== a.score) return b.score - a.score;
