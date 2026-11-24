@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KTX Sinh Tồn — Co-op 100 Phòng Đơn</title>
+  <title>KTX Sinh Tồn — 100 Phòng Đơn Co-op</title>
   <style>
     :root {
-      --c-bg: #070607;
-      --c-surface: #110d0f;
-      --c-surface-2: #191215;
-      --c-border: #381b21;
-      --c-text: #f1e9eb;
-      --c-muted: #9e848a;
+      --c-bg: #070506;
+      --c-surface: #110c0e;
+      --c-surface-2: #191114;
+      --c-border: #3a1a21;
+      --c-text: #f2eaec;
+      --c-muted: #9e8389;
       --c-red: #e0313d;
       --c-red-soft: rgba(224, 49, 61, 0.16);
       --c-green: #2fbf71;
@@ -19,7 +19,7 @@
       --c-mono: "JetBrains Mono", Consolas, monospace;
     }
     html.coop-html, body.coop-body {
-      background: var(--c-bg) !important;
+      background: radial-gradient(circle at 50% 0%, #1c0b10 0%, var(--c-bg) 55%) !important;
       color: var(--c-text) !important;
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif !important;
       margin: 0 !important;
@@ -27,25 +27,48 @@
       min-height: 100vh;
     }
     .hidden { display: none !important; }
+    * { box-sizing: border-box; }
 
-    /* === LOBBY SCREEN === */
+    /* === LOBBY SCREEN (GAME TITLE STYLE) === */
     .lobby-wrap {
-      max-width: 780px; margin: 0 auto; padding: 20px 14px 40px;
+      max-width: 680px; margin: 0 auto; padding: 26px 14px 44px;
       display: flex; flex-direction: column; gap: 14px;
     }
     .lobby-hero {
-      border: 1px solid var(--c-border); border-left: 4px solid var(--c-red);
-      background: radial-gradient(circle at top right, var(--c-red-soft), transparent 55%), var(--c-surface);
-      border-radius: 12px; padding: 16px 18px;
+      border: 1px solid var(--c-border); border-top: 3px solid var(--c-red);
+      background: radial-gradient(circle at top right, var(--c-red-soft), transparent 60%), var(--c-surface);
+      border-radius: 14px; padding: 20px 20px 16px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
     }
-    .lobby-hero h1 { font-size: 20px; color: #fff; margin-bottom: 6px; letter-spacing: 0.4px; }
-    .lobby-hero p { font-size: 13px; color: var(--c-muted); line-height: 1.5; }
+    .hero-tag {
+      display: inline-block; font-family: var(--c-mono); font-size: 10.5px; letter-spacing: 1px;
+      color: var(--c-red); border: 1px solid var(--c-border); background: var(--c-bg);
+      padding: 2px 8px; border-radius: 99px; margin-bottom: 8px; text-transform: uppercase;
+    }
+    .lobby-hero h1 { font-size: 22px; color: #fff; margin: 0 0 6px; letter-spacing: 0.4px; }
+    .lobby-hero p { font-size: 13px; color: var(--c-muted); line-height: 1.55; margin: 0; }
+    .sys-pills {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px;
+      border-top: 1px dashed var(--c-border); font-family: var(--c-mono); font-size: 11px;
+    }
+    .sys-pill {
+      padding: 3px 9px; border-radius: 99px; background: var(--c-bg); border: 1px solid var(--c-border); color: var(--c-muted);
+    }
+    .sys-pill.ok { border-color: rgba(47, 191, 113, 0.5); color: #8af0b8; }
+    .sys-pill.warn { border-color: rgba(230, 162, 60, 0.55); color: #ffd28a; }
+
+    .rejoin-bar {
+      background: rgba(47, 191, 113, 0.1); border: 1px solid rgba(47, 191, 113, 0.5);
+      border-radius: 10px; padding: 10px 14px; display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px;
+    }
+
     .panel {
       background: var(--c-surface); border: 1px solid var(--c-border);
-      border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+      border-radius: 12px; padding: 15px 16px; display: flex; flex-direction: column; gap: 11px;
     }
     .panel-title {
-      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+      font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
       color: var(--c-red); display: flex; justify-content: space-between; align-items: center;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -53,65 +76,78 @@
     .field label { font-size: 11.5px; color: var(--c-muted); font-weight: 600; }
     .field input, .field select, .field textarea {
       background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border);
-      border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none;
+      border-radius: 8px; padding: 8.5px 10px; font-size: 13px; font-family: inherit; outline: none;
     }
     .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--c-red); }
     .field textarea { resize: vertical; min-height: 76px; font-family: var(--c-mono); font-size: 11.5px; }
-    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
-    .btn {
-      padding: 9px 14px; border-radius: 8px; border: 1px solid var(--c-border);
-      background: var(--c-surface-2); color: var(--c-text); font-weight: 700; font-size: 12.5px;
-      cursor: pointer; transition: 0.15s;
-    }
-    .btn:hover { border-color: #fff; }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-red { background: var(--c-red); border-color: var(--c-red); color: #fff; }
-    .btn-red:hover { filter: brightness(1.1); }
-    .btn-green { background: rgba(47, 191, 113, 0.18); border-color: var(--c-green); color: #8af0b8; }
+
     .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .mode-pill {
-      padding: 9px; border-radius: 8px; text-align: center; cursor: pointer;
-      border: 1px solid var(--c-border); background: var(--c-bg); color: var(--c-muted); font-weight: 700;
+      padding: 10px 8px; border-radius: 9px; text-align: center; cursor: pointer;
+      border: 1px solid var(--c-border); background: var(--c-bg); color: var(--c-muted);
+      font-weight: 700; font-size: 13px; transition: 0.15s;
     }
     .mode-pill.active { background: var(--c-red-soft); border-color: var(--c-red); color: #fff; }
+
+    details.adv-box {
+      background: var(--c-surface); border: 1px dashed var(--c-border); border-radius: 10px; padding: 10px 14px;
+    }
+    details.adv-box summary {
+      cursor: pointer; font-size: 12px; color: var(--c-muted); font-weight: 600; user-select: none;
+    }
+    details.adv-box[open] summary { margin-bottom: 10px; color: var(--c-text); }
+
+    .btn-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .btn {
+      padding: 8.5px 14px; border-radius: 8px; border: 1px solid var(--c-border);
+      background: var(--c-surface-2); color: var(--c-text); font-weight: 700; font-size: 12.5px;
+      cursor: pointer; transition: 0.14s;
+    }
+    .btn:hover:not(:disabled) { border-color: #fff; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+    .btn-red { background: var(--c-red); border-color: var(--c-red); color: #fff; }
+    .btn-green { background: rgba(47, 191, 113, 0.18); border-color: var(--c-green); color: #8af0b8; }
+    .btn-sm { padding: 5px 10px; font-size: 11.5px; }
+
     .err-banner {
       background: rgba(224, 49, 61, 0.15); border: 1px solid var(--c-red); color: #ff9c9e;
       padding: 8px 12px; border-radius: 8px; font-size: 12.5px;
     }
 
-    /* === MAIN CO-OP SHELL === */
+    /* === MAIN GAME SHELL === */
     .coop-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     .coop-top {
       background: var(--c-surface); border-bottom: 1px solid var(--c-border);
       padding: 8px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
       flex-shrink: 0;
     }
-    .top-left { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .top-left { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
     .badge {
       font-family: var(--c-mono); font-size: 11px; padding: 3px 8px; border-radius: 99px;
       border: 1px solid var(--c-border); background: var(--c-surface-2); color: var(--c-text);
     }
     .badge.red { border-color: var(--c-red); background: var(--c-red-soft); color: #fff; cursor: pointer; }
-    .squad-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .badge.cd { border-color: rgba(230, 162, 60, 0.55); color: #ffd28a; background: rgba(230, 162, 60, 0.1); }
+    .squad-pills { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
     .p-pill {
       font-family: var(--c-mono); font-size: 11px; padding: 3px 8px; border-radius: 6px;
       background: var(--c-bg); border: 1px solid var(--c-border); color: var(--c-muted);
     }
-    .p-pill.ready { border-color: var(--c-green); color: #8af0b8; }
-    .p-pill.dead { border-color: var(--c-red); color: #ff8e91; text-decoration: line-through; }
+    .p-pill.ready { border-color: var(--c-green); color: #8af0b8; background: rgba(47, 191, 113, 0.08); }
+    .p-pill.dead { border-color: var(--c-red); color: #ff8e91; text-decoration: line-through; opacity: 0.7; }
 
     .mobile-tabs {
       display: none; background: var(--c-surface); border-bottom: 1px solid var(--c-border);
-      grid-template-columns: repeat(3, 1fr); flex-shrink: 0;
+      grid-template-columns: repeat(4, 1fr); flex-shrink: 0;
     }
     .m-tab {
-      padding: 9px 6px; text-align: center; font-size: 12px; font-weight: 700;
+      padding: 9px 4px; text-align: center; font-size: 11.5px; font-weight: 700;
       color: var(--c-muted); border-bottom: 2px solid transparent; cursor: pointer;
     }
     .m-tab.active { color: #fff; border-bottom-color: var(--c-red); background: var(--c-red-soft); }
 
     .coop-body-grid {
-      display: grid; grid-template-columns: 1.05fr 0.95fr; flex: 1; min-height: 0; overflow: hidden;
+      display: grid; grid-template-columns: 1.06fr 0.94fr; flex: 1; min-height: 0; overflow: hidden;
     }
     .col-story {
       display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--c-border);
@@ -120,33 +156,56 @@
       flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px;
     }
     .turn-card {
-      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px;
-      padding: 13px 15px; display: flex; flex-direction: column; gap: 10px;
+      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 11px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
     }
     .turn-meta {
       font-family: var(--c-mono); font-size: 11px; color: var(--c-muted);
-      display: flex; justify-content: space-between; border-bottom: 1px dashed var(--c-border); padding-bottom: 6px;
+      display: flex; justify-content: space-between; gap: 8px;
+      border-bottom: 1px dashed var(--c-border); padding-bottom: 6px;
     }
-    .prose { font-size: 14px; line-height: 1.7; color: #efe7e9; white-space: pre-wrap; }
+    .prose { font-size: 14px; line-height: 1.72; color: #f0e8ea; white-space: pre-wrap; }
     .private-box {
       background: #1a0b0f; border: 1px solid var(--c-red); border-left: 4px solid var(--c-red);
       border-radius: 8px; padding: 10px 12px;
     }
     .private-label {
       font-family: var(--c-mono); font-size: 10.5px; color: #ff8e91; font-weight: 700;
-      text-transform: uppercase; margin-bottom: 4px;
+      text-transform: uppercase; margin-bottom: 5px;
     }
+    .notify-inline {
+      background: #140b0e; border: 1px solid var(--c-border); border-left: 3px solid var(--c-warn);
+      border-radius: 8px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .notify-inline.priv { border-left-color: var(--c-red); background: #1c0b10; }
+    .notify-h {
+      font-family: var(--c-mono); font-size: 10.5px; color: #ffd28a; font-weight: 700; text-transform: uppercase;
+    }
+    .notify-inline.priv .notify-h { color: #ff9c9e; }
+    .notify-line { font-size: 12.5px; color: var(--c-text); line-height: 1.45; }
+
     .actions-recap {
       font-size: 12px; color: var(--c-muted); background: var(--c-bg); padding: 7px 10px;
-      border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.06); line-height: 1.5;
     }
+
+    /* === MINI HUD STRIP === */
+    .mini-hud {
+      background: #0d080a; border-top: 1px solid var(--c-border);
+      padding: 6px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+      font-family: var(--c-mono); font-size: 11px; color: var(--c-muted); flex-shrink: 0;
+    }
+    .mh-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .mh-hp { color: #8af0b8; font-weight: 700; }
+    .mh-hp.mid { color: #ffd28a; }
+    .mh-hp.low { color: #ff8e91; }
 
     .composer {
       background: var(--c-surface); border-top: 1px solid var(--c-border);
-      padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+      padding: 9px 14px 11px; display: flex; flex-direction: column; gap: 7px; flex-shrink: 0;
     }
     .composer textarea {
-      width: 100%; min-height: 58px; max-height: 130px; resize: vertical;
+      width: 100%; min-height: 54px; max-height: 126px; resize: vertical;
       background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border);
       border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
     }
@@ -156,29 +215,40 @@
     }
     .comp-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 
-    /* === RIGHT PANE: PHONE + COMMS === */
+    /* === RIGHT PANE: PHONE + COMMS + JOURNAL === */
     .col-right { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
     .right-subtabs {
       display: flex; background: var(--c-surface); border-bottom: 1px solid var(--c-border); flex-shrink: 0;
     }
     .r-tab {
-      flex: 1; padding: 8px; text-align: center; font-size: 12px; font-weight: 700;
+      flex: 1; padding: 8px 6px; text-align: center; font-size: 11.8px; font-weight: 700;
       color: var(--c-muted); cursor: pointer; border-bottom: 2px solid transparent;
     }
     .r-tab.active { color: #fff; border-bottom-color: var(--c-red); background: var(--c-red-soft); }
     .phone-scroll { flex: 1; overflow-y: auto; padding: 10px; }
-    .comms-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px; gap: 10px; }
+    .comms-wrap, .journal-wrap {
+      flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px; gap: 10px; overflow-y: auto;
+    }
     .comms-log {
       flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
       background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px; padding: 10px;
     }
     .comm-item {
       padding: 8px 10px; border-radius: 8px; background: var(--c-surface-2); border-left: 3px solid var(--c-muted);
-      font-size: 12.5px;
+      font-size: 12.5px; display: flex; flex-direction: column; gap: 4px;
     }
-    .comm-item.direct { border-left-color: var(--c-warn); background: rgba(230,162,60,0.08); }
+    .comm-item.direct { border-left-color: var(--c-warn); background: rgba(230, 162, 60, 0.08); }
     .comm-item.invite { border-left-color: var(--c-red); background: var(--c-red-soft); }
-    .comm-head { font-family: var(--c-mono); font-size: 10.5px; color: var(--c-muted); margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .comm-head { font-family: var(--c-mono); font-size: 10.5px; color: var(--c-muted); display: flex; justify-content: space-between; }
+
+    .ledger-card {
+      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px;
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .ledger-row {
+      font-size: 12.5px; line-height: 1.5; padding: 7px 10px; background: var(--c-surface-2);
+      border-left: 2px solid var(--c-red); border-radius: 0 6px 6px 0;
+    }
 
     @media (max-width: 860px) {
       .mobile-tabs { display: grid; }
@@ -192,33 +262,33 @@
 </head>
 <body class="coop-body">
 
-  <!-- ==================== MÀN HÌNH SẢNH (LOBBY) ==================== -->
+  <!-- ==================== MÀN HÌNH SẢNH ==================== -->
   <div id="lobby-screen" class="lobby-wrap">
     <div class="lobby-hero">
-      <h1>🏫 TRÒ CHƠI SINH TỒN PHÒNG NGỦ — CO-OP (2–4 NGƯỜI)</h1>
-      <p>Mỗi người chơi nhận 1 phòng đơn độc lập trong Khu 100 Phòng (P.101–P.520). Chỉ Chủ phòng cần Gemini API Key; người chơi khác vào bằng Mã sảnh, giữ góc nhìn mật riêng và đồng bộ BXH 100 phòng thời gian thực qua Firebase.</p>
+      <span class="hero-tag">Infinite Flow • 100 Phòng Đơn • Co-op 2–4 Người</span>
+      <h1>🏫 TRÒ CHƠI SINH TỒN PHÒNG NGỦ</h1>
+      <p>Mỗi người chơi giữ 1 phòng đơn độc lập trong Khu 100 Phòng (P.101–P.520). Góc nhìn mật, trạng thái cơ thể và suy nghĩ ngầm được tách biệt hoàn toàn giữa các máy; hệ thống tự đồng bộ diễn biến và BXH thời gian thực.</p>
+      <div class="sys-pills">
+        <span class="sys-pill ok" id="pill-fb">🟢 Máy chủ đồng bộ: Sẵn sàng</span>
+        <span class="sys-pill" id="pill-prompt">⏳ Đang nạp prompt.txt...</span>
+      </div>
+    </div>
+
+    <div id="rejoin-bar" class="rejoin-bar hidden">
+      <span id="rejoin-text">Phiên chơi trước vẫn còn lưu.</span>
+      <div class="btn-row">
+        <button id="btn-rejoin" class="btn btn-green btn-sm">🔄 Vào lại sảnh cũ</button>
+        <button id="btn-clear-rejoin" class="btn btn-sm">Bỏ qua</button>
+      </div>
     </div>
 
     <div id="lobby-error" class="err-banner hidden"></div>
 
-    <!-- Cấu hình Firebase -->
     <div class="panel">
-      <div class="panel-title">
-        <span>1. Kết nối Firebase Realtime Database</span>
-        <span id="fb-status" style="font-family:var(--c-mono);color:var(--c-muted);">Chưa kiểm tra</span>
-      </div>
-      <div class="field">
-        <label>Dán object firebaseConfig (JSON) từ Firebase Console (lưu sẵn trong máy, chỉ cần dán 1 lần — hoặc sửa thẳng hằng số DEFAULT_FIREBASE_CONFIG trong code)</label>
-        <textarea id="in-fb-config" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"https://...-default-rtdb.asia-southeast1.firebasedatabase.app","projectId":"..."}'></textarea>
-      </div>
-    </div>
-
-    <!-- Hồ sơ sinh viên -->
-    <div class="panel">
-      <div class="panel-title"><span>2. Hồ sơ Sinh viên & Phòng đơn</span></div>
+      <div class="panel-title"><span>1. Chọn vai trò & Hồ sơ Sinh viên</span></div>
       <div class="mode-switch">
-        <div class="mode-pill active" data-role="host">👑 Tạo sảnh mới (Chủ phòng / GM)</div>
-        <div class="mode-pill" data-role="guest">🚪 Vào sảnh có sẵn (Người chơi)</div>
+        <div class="mode-pill active" data-role="host">👑 Tạo sảnh mới (Chủ phòng)</div>
+        <div class="mode-pill" data-role="guest">🚪 Vào sảnh bạn bè (Mã sảnh)</div>
       </div>
 
       <div class="grid-2">
@@ -238,91 +308,121 @@
           <input id="in-major" placeholder="VD: Pháp y / Kiến trúc / Văn học" />
         </div>
         <div class="field">
-          <label>Vật cầm tay lúc 22:00 (Để trống = tay không)</label>
-          <input id="in-item" placeholder="VD: Cây thụt bồn cầu / Bình giữ nhiệt" />
+          <label>Vật cầm tay lúc 22:00 (Trống = Tay không)</label>
+          <input id="in-item" placeholder="VD: Bình giữ nhiệt / Gương cầm tay" />
         </div>
         <div class="field">
-          <label>ID Phòng đơn (P.101–P.520, để trống = random)</label>
+          <label>Phòng đơn mong muốn (101–520, Trống = Ngẫu nhiên)</label>
           <input id="in-room" placeholder="VD: 404" maxlength="5" />
         </div>
-        <div class="field" id="wrap-lobby-code">
-          <label>Mã sảnh (6 ký tự — Khách nhập từ Chủ phòng)</label>
+        <div class="field hidden" id="wrap-lobby-code">
+          <label>Mã sảnh (6 ký tự từ Chủ phòng)</label>
           <input id="in-code" placeholder="VD: KTX842" style="text-transform:uppercase;font-family:var(--c-mono);" />
         </div>
       </div>
     </div>
 
-    <!-- Cấu hình AI dành riêng cho Chủ phòng -->
+    <!-- Chỉ hiện với Chủ phòng -->
     <div class="panel" id="host-ai-panel">
-      <div class="panel-title"><span>3. Quản trò AI (Chỉ lưu trên trình duyệt Chủ phòng)</span></div>
+      <div class="panel-title"><span>2. Kết nối Quản trò AI (Chỉ lưu trên máy Chủ phòng)</span></div>
       <div class="grid-2">
         <div class="field">
-          <label>Gemini API Key (Chủ phòng — không gửi lên Firebase)</label>
+          <label>Gemini API Key</label>
           <input id="in-api-key" type="password" placeholder="AIzaSy..." />
         </div>
         <div class="field">
           <label>Model Gemini</label>
-          <input id="in-model" value="gemini-2.5-flash" placeholder="gemini-2.5-flash / gemini-2.5-pro" />
+          <input id="in-model" value="gemini-2.5-flash" list="model-presets" placeholder="gemini-2.5-flash" />
+          <datalist id="model-presets">
+            <option value="gemini-2.5-flash"></option>
+            <option value="gemini-2.5-pro"></option>
+            <option value="gemini-2.0-flash"></option>
+          </datalist>
         </div>
       </div>
-      <div class="field">
-        <label>System Prompt KTX Nữ (Tùy chọn: dán toàn bộ file ktx nữ (40) vào đây; nếu để trống sẽ chạy bộ luật Co-op rút gọn tích hợp sẵn)</label>
-        <textarea id="in-custom-prompt" placeholder="Dán nội dung system prompt ktx nữ (40) của bạn (tùy chọn)..."></textarea>
-      </div>
     </div>
 
-    <div class="btn-row">
-      <button id="btn-enter" class="btn btn-red" style="flex:1;padding:12px;">⚡ Tạo sảnh & Bước vào Đêm 1</button>
-    </div>
+    <!-- Cài đặt kỹ thuật thu gọn ngầm -->
+    <details class="adv-box">
+      <summary>⚙️ Cài đặt nâng cao (Mặc định đã tự nối Firebase &amp; tự đọc prompt.txt)</summary>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="field">
+          <label>Ghi đè System Prompt thủ công (Chỉ điền nếu bạn muốn thay thế file prompt.txt trong repo)</label>
+          <textarea id="in-custom-prompt" placeholder="Để trống để tự động dùng file ./prompt.txt từ GitHub..."></textarea>
+        </div>
+        <div class="field">
+          <label>Ghi đè Firebase Config JSON (Để trống để dùng dự án VHL520 mặc định)</label>
+          <textarea id="in-fb-config" placeholder="Đã gắn sẵn VHL520..."></textarea>
+        </div>
+      </div>
+    </details>
+
+    <button id="btn-enter" class="btn btn-red" style="width:100%;padding:12px;font-size:13.5px;">⚡ Tạo sảnh &amp; Chuẩn bị Đêm 1</button>
   </div>
 
-  <!-- ==================== MÀN HÌNH CHƠI GAME CO-OP ==================== -->
+  <!-- ==================== MÀN HÌNH CHƠI GAME ==================== -->
   <div id="game-screen" class="coop-shell hidden">
     <header class="coop-top">
       <div class="top-left">
         <span class="badge red" id="lbl-code" title="Bấm để sao chép Mã sảnh">MÃ: ------</span>
         <span class="badge" id="lbl-me">P.---</span>
-        <span class="badge" id="lbl-clock">Ngày 1 • 22:00</span>
+        <span class="badge" id="lbl-clock">Ngày 1 • 21:59</span>
+        <span class="badge cd hidden" id="lbl-cd">⏳ 02:00:00</span>
       </div>
       <div class="squad-pills" id="squad-pills"></div>
       <div class="btn-row">
-        <button class="btn hidden" id="btn-start-night1" style="padding:5px 10px;font-size:11.5px;border-color:var(--c-red);color:#fff;background:var(--c-red);">🌙 Bắt đầu Đêm 1 (22:00)</button>
-        <button class="btn" id="btn-leave" style="padding:5px 10px;font-size:11.5px;">Thoát</button>
+        <button class="btn btn-red btn-sm hidden" id="btn-start-night1">🌙 Bắt đầu Đêm 1 (22:00)</button>
+        <button class="btn btn-sm hidden" id="btn-hotfix" title="Chạy lại lượt vừa rồi nếu AI lỗi">↺ Sửa lượt</button>
+        <button class="btn btn-sm" id="btn-leave">Thoát</button>
       </div>
     </header>
 
-    <!-- Tab chuyển đổi cho màn hình điện thoại -->
     <div class="mobile-tabs">
-      <div class="m-tab active" data-mtab="story">📖 Diễn biến</div>
-      <div class="m-tab" data-mtab="phone">📱 Điện thoại</div>
+      <div class="m-tab active" data-mtab="story">📖 Truyện</div>
+      <div class="m-tab" data-mtab="phone">📱 App KTX</div>
       <div class="m-tab" data-mtab="comms">📡 Liên lạc</div>
+      <div class="m-tab" data-mtab="journal">📓 Nhật ký</div>
     </div>
 
     <div class="coop-body-grid">
-      <!-- CỘT TRÁI: TRUYỆN & CHỐT LƯỢT -->
+      <!-- CỘT TRÁI: DIỄN BIẾN + MINI HUD + CHỐT LƯỢT -->
       <section class="col-story m-active" id="pane-story">
         <div class="story-feed" id="story-feed"></div>
 
         <div id="game-error" class="err-banner hidden" style="margin:0 14px 8px;"></div>
 
+        <div class="mini-hud" id="mini-hud">
+          <div class="mh-group">
+            <span class="mh-hp" id="mh-hp">💚 100/100</span>
+            <span id="mh-cr">🎓 0/100 HP</span>
+            <span id="mh-pt">💰 0 đ</span>
+            <span id="mh-rk">🏆 --</span>
+          </div>
+          <div class="mh-group">
+            <span id="mh-talent">✨ Tay không</span>
+            <span id="mh-mem" title="Trí nhớ ẩn của Quản trò được lưu ngầm trên Firebase">🧠 Sổ ngầm: 0 mốc</span>
+          </div>
+        </div>
+
         <div class="composer">
-          <textarea id="in-action" placeholder="Nhập hành động hoặc lời nói của bạn... (hoặc gõ /examine, /random Quyển A, /join P.XXX)"></textarea>
-          <input id="in-secret" class="secret-in" placeholder="🔒 Suy nghĩ / Hành động ngầm (CHỈ AI Quản trò đọc, đồng đội tuyệt đối không thấy)" />
+          <textarea id="in-action" placeholder="Nhập hành động hoặc lời nói của bạn... (gõ '...' để giữ im lặng, hoặc /examine, /random Quyển A)"></textarea>
+          <input id="in-secret" class="secret-in" placeholder="🔒 Suy nghĩ / Hành động ngầm (CHỈ AI đọc, các phòng khác tuyệt đối không thấy)" />
           <div class="comp-bar">
-            <span id="lock-status" style="font-size:11.5px;color:var(--c-muted);font-family:var(--c-mono);">Chưa chốt lượt</span>
+            <span id="lock-status" style="font-size:11.5px;color:var(--c-muted);font-family:var(--c-mono);">Chờ bắt đầu</span>
             <div class="btn-row">
               <button class="btn btn-green" id="btn-lock">🔒 Chốt lượt</button>
-              <button class="btn btn-red hidden" id="btn-run-gm">⚡ Chạy lượt AI (GM)</button>
+              <button class="btn btn-red hidden" id="btn-run-gm">⚡ Chạy lượt AI</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- CỘT PHẢI: ĐIỆN THOẠI DORM ENGINE + BỘ ĐÀM CO-OP -->
+      <!-- CỘT PHẢI: APP DORM ENGINE + BỘ ĐÀM + NHẬT KÝ -->
       <aside class="col-right" id="pane-right">
         <div class="right-subtabs">
-          <div class="r-tab active" data-rtab="phone">📱 App Sinh Tồn (dorm_engine)</div>
-          <div class="r-tab" data-rtab="comms">📡 Liên lạc / Mời ghép đội (Real-time)</div>
+          <div class="r-tab active" data-rtab="phone">📱 App Sinh Tồn</div>
+          <div class="r-tab" data-rtab="comms">📡 Liên lạc / Ghép đội</div>
+          <div class="r-tab" data-rtab="journal">📓 Nhật ký sự kiện</div>
         </div>
 
         <div class="phone-scroll" id="sub-phone">
@@ -331,27 +431,37 @@
 
         <div class="comms-wrap hidden" id="sub-comms">
           <div class="comms-log" id="comms-log"></div>
-          <div class="panel" style="padding:10px;">
+          <div class="panel" style="padding:10px;gap:8px;">
             <div class="grid-2" style="gap:6px;">
               <select id="comm-target" style="background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:6px;font-size:12px;">
                 <option value="ALL">📢 Kênh chung (Hành lang / Sảnh)</option>
               </select>
               <select id="comm-type" style="background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:6px;font-size:12px;">
-                <option value="call">📞 Gọi điện / Nhắn tin (/call)</option>
-                <option value="invite">✉️ Gửi Lời mời ghép đội (/invite)</option>
+                <option value="call">📞 Gọi điện / Nhắn tin</option>
+                <option value="invite">✉️ Mời ghép đội Học phần</option>
               </select>
             </div>
             <div style="display:flex;gap:6px;">
-              <input id="comm-text" placeholder="Nội dung gọi điện hoặc điều kiện ghép đội (VD: Quyển B - cần người giải đố)..." style="flex:1;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:7px 9px;font-size:12.5px;" />
-              <button class="btn btn-red" id="btn-send-comm" style="padding:7px 12px;">Gửi</button>
+              <input id="comm-text" placeholder="Nhắn riêng cho phòng khác hoặc điều kiện ghép đội (không tốn lượt AI)..." style="flex:1;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:7px 9px;font-size:12.5px;" />
+              <button class="btn btn-red btn-sm" id="btn-send-comm">Gửi</button>
             </div>
+          </div>
+        </div>
+
+        <div class="journal-wrap hidden" id="sub-journal">
+          <div class="ledger-card">
+            <div class="panel-title">
+              <span>📓 Memory Ledger (Dòng sự kiện bề mặt)</span>
+              <span style="font-family:var(--c-mono);font-size:10.5px;color:var(--c-muted);">Dữ liệu ẩn của GM được khóa kín</span>
+            </div>
+            <div id="ledger-list" style="display:flex;flex-direction:column;gap:7px;"></div>
           </div>
         </div>
       </aside>
     </div>
   </div>
 
-  <!-- Dùng đường dẫn tương đối nếu để chung repo GitHub với dorm_engine_v6_4.js -->
+  <!-- Khớp đúng tên file dorm_engine_v6_4.js trên repo GitHub của bạn -->
   <script src="./dorm_engine_v6_4.js"></script>
 
   <script type="module">
@@ -371,64 +481,87 @@
       measurementId: "G-SDH5H3345S"
     };
 
-    const BUILTIN_COOP_RULES = `
-Bạn là Quản trò (Game Master) của thế giới Vô Hạn Lưu Kinh Dị Quy Tắc "Trò Chơi Sinh Tồn Trong Phòng Ngủ" phiên bản Co-op 2-4 người chơi thật (mỗi người 1 phòng đơn trong Khu 100 Phòng P.101-P.520).
-- Ngôn ngữ: 100% tiếng Việt văn học sắc lạnh, rùng rợn kiểu Vô Hạn Lưu (Cấm dùng từ hệ thống như RNG, NPC, User, HP trong văn xuôi; cấm kiểm soát lời nói/suy nghĩ/hành động của người chơi).
-- Đêm 1 (22:00-00:00): Cúp điện toàn trường lúc 22:00, giọng trẻ con 'Giáo viên' phát thanh mỗi 30 phút. Mỗi người chơi bắt đầu ở sân/sảnh/hành lang tầng dưới, phải tự tìm về đúng Phòng đơn chỉ định trước 00:00 và chốt cửa không cho bất kỳ ai vào. Vật cầm tay lúc 22:00 (trừ điện thoại) biến dị thành Dị năng thiên phú.
-- World 0 (00:00): Sinh Hoạt Đầu Khóa: Bách Đoàn Đại Chiến (cá nhân). Vượt qua sẽ thành Sinh viên chính thức (mode: "official"), mở BXH 100 phòng ẩn danh theo ID phòng, Giờ An Toàn (20:00-08:00 & Chủ Nhật), và đề thi nhóm 08:00 (1-4 người).
-- Quy tắc mù thông tin & Co-op:
-  + Tuyệt đối KHÔNG lộ nội dung "Suy nghĩ / Hành động ngầm" của người này trong đoạn truyện chung (public_prose).
-  + Mọi manh mối riêng, cảm giác cá nhân, cuộc chạm trán khi đi lẻ, hoặc vai diễn bí mật khi tách vai phải đặt riêng trong private_pov[roomId].
-- Tính điểm cá nhân sau mỗi bài thi: Nền cá nhân từ 100 trừ lỗi thực tế (<60 trượt). Điểm tích lũy tối đa 20/bài = Nền (2/4/6) + Hiệu quả (1-5) + Xếp loại (0/1/MVP +7) + Thành tựu (0/1/2).
+    const BUILTIN_FALLBACK_RULES = `
+Bạn là Quản trò (Game Master) của thế giới Vô Hạn Lưu Kinh Dị Quy Tắc "Trò Chơi Sinh Tồn Trong Phòng Ngủ" (100 Phòng Đơn P.101-P.520).
+- Ngôn ngữ: 100% tiếng Việt văn học sắc lạnh, Show Don't Tell, cấm tuyệt đối từ hệ thống (RNG, NPC, HP, User) trong văn xuôi; cấm điều khiển lời nói, suy nghĩ, hành động của người chơi (Time T+1, Blackbox).
+- Đêm 1 (22:00-00:00): Cúp điện lúc 22:00, phát thanh trẻ con 'Giáo viên' mỗi 30 phút. Tìm về đúng phòng đơn chỉ định trước 00:00 và chốt cửa không cho bất kỳ ai vào. Vật cầm tay lúc 22:00 (trừ điện thoại) biến dị thành Dị năng thiên phú.
+- World 0 (00:00): Sinh Hoạt Đầu Khóa: Bách Đoàn Đại Chiến. Vượt qua mở Sinh viên chính thức (official), BXH 100 phòng ẩn danh theo ID phòng cập nhật 20:00 hàng ngày, Giờ An Toàn (20:00-08:00 & Chủ Nhật), và đề thi 08:00 (6 khung đề đa chặng 3-4 tiểu giai đoạn).
+- Chấm điểm cá nhân: Bắt đầu 100 trừ lỗi thực tế (<60 trượt). Điểm tích lũy tối đa 20/bài = Nền (2/4/6) + Hiệu quả (1-5) + Xếp loại (0/1/MVP +7) + Thành tựu (0/1/2).
 `;
 
-    const JSON_OUTPUT_CONTRACT = `
-=== BẮT BUỘC ĐẦU RA JSON THUẦN (KHÔNG VIẾT MARKDOWN NGOÀI JSON) ===
-Bạn PHẢI trả về đúng 1 JSON object hợp lệ với cấu trúc sau:
+    // Lớp ghi đè ép prompt.txt (vốn viết cho 1 user + Markdown HTML/HUD) chạy chuẩn Co-op Web Game + JSON + Sổ nhớ ẩn
+    const COOP_WEB_OVERRIDE = `
+================================================================================
+[CO-OP WEB ENGINE OVERRIDE — QUYỀN ƯU TIÊN CAO NHẤT CHO ĐỊNH DẠNG ĐẦU RA]
+================================================================================
+Bạn đang vận hành toàn bộ quy tắc thế giới, độ khó suy luận, 6 Khung đề thi, thang trừ điểm cá nhân 0-100, công thức 0-20 Điểm tích lũy, văn phong Vô Hạn Lưu và Firewall chống OOC/giải đố ở trên, NHƯNG chạy trên giao diện Web Co-op 2-4 người chơi thật (mỗi người 1 phòng đơn):
+1. ĐA NGƯỜI CHƠI THẬT (MULTI-PROTAGONIST): Mọi phòng nằm trong danh sách NGƯỜI CHƠI THẬT đều được hưởng trọn vẹn quyền tự chủ [MODULE 0] (Blackbox, Time T+1, Cấm godmoding, Tử vong từ giây phút đầu). Tuyệt đối không thiên vị hay điều khiển hành động của bất kỳ người chơi thật nào.
+2. MÙ THÔNG TIN & GÓC NHÌN MẬT (TRUE FOG OF WAR):
+   - "public_prose" CHỈ mô tả diễn biến chung mà các người chơi ở cùng không gian đều thấy/nghe, hoặc khung cảnh toàn khu ký túc xá (như tiếng phát thanh lúc 22:00).
+   - TUYỆT ĐỐI KHÔNG tiết lộ nội dung "Hành động/suy nghĩ ngầm" của phòng này trong "public_prose" hay trong "private_pov" của phòng khác.
+   - Khi người chơi ở khác tầng/khác phòng (như Đêm 1 tìm phòng đơn, World 0 độc hành, hay tách vai/Thế giới song song trong Phó bản), đặt toàn bộ diễn biến riêng, manh mối soi được, và vai diễn bí mật của từng người vào đúng "private_pov[roomKey]" (VD: "P404", "P215").
+3. KHÔNG XUẤT MARKDOWN HTML / HUD / AUTOLOG THỦ CÔNG: Giao diện web đã tự render dorm_engine_v6_4.js và HUD. TUYỆT ĐỐI KHÔNG viết thẻ html, khối Main HUD, [AUTOLOG], hay comment <!-- --> bên trong public_prose hoặc private_pov.
+4. SỔ NHỚ NGẦM (gm_memory_update): Thay thế hoàn toàn Top Scratchpad & <!-- [SYS_HID] --> bằng trường "gm_memory_update" trong JSON trả về. Bạn PHẢI luôn duy trì đầy đủ: giáo trình 3-4 chặng đã khóa, kết quả RNG đề thi/tiểu giai đoạn, biến động Top 3 BXH, danh sách NPC đã gặp + điểm Trust + Tổ chức + EntityBond + hạt giống Hiệu ứng cánh bướm bên trong "sys_hid" để không bao giờ quên tình tiết qua nhiều lượt.
+
+=== BẮT BUỘC ĐẦU RA LÀ ĐÚNG 1 JSON OBJECT THUẦN (KHÔNG TEXT NGOÀI JSON) ===
 {
   "mode": "pre | temp | official",
   "inExam": true hoặc false,
-  "clock": { "time": "Ngày D • Thứ ... • HH:MM", "countdown": "HH:MM:SS hoặc chuỗi rỗng", "status": "Trạng thái ngắn" },
-  "public_prose": "3-5 đoạn văn tiếng Việt mô tả diễn biến chung Time T+1 (tuyệt đối không lộ hành động ngầm hay góc nhìn mật của riêng ai).",
+  "clock": {
+    "time": "Năm 1 • Mùa Thu • Ngày D (Thứ ...) • HH:MM",
+    "countdown": "HH:MM:SS hoặc chuỗi rỗng",
+    "status": "Trạng thái khu vực ngắn gọn"
+  },
+  "public_prose": "Văn xuôi tiếng Việt diễn biến chung Time T+1 (3-5 đoạn giàu không khí, không có HUD/HTML/system terms).",
   "private_pov": {
-    "P404": "Đoạn văn riêng CHỈ phòng P.404 thấy (cảnh báo riêng, chi tiết quan sát được, vai diễn mật, hoặc chuỗi rỗng nếu không có)."
+    "P404": "Diễn biến riêng CHỈ phòng P.404 thấy (hoặc chuỗi rỗng nếu không có)."
   },
   "players_patch": {
     "P404": {
       "hp": 100,
       "maxHp": 100,
-      "hpNote": "Tình trạng tinh thần",
+      "hpNote": "Tình trạng tinh thần và ô nhiễm hiện tại",
       "limbs": "Lành lặn 100%",
+      "stats": [10, 10, 10, 10],
       "inRoom": false,
       "alive": true,
       "credits": 0,
       "points": 0,
       "bxhScore": 0,
       "rank": "Chưa định hạng hoặc #X",
-      "role": "Phòng đơn hoặc vai diễn trong phó bản",
-      "talent": { "item": "Tên vật phẩm hoặc Không có", "desc": "Mô tả dị năng" },
+      "role": "Phòng đơn hoặc vai diễn cá nhân",
+      "talent": { "item": "Tên vật phẩm hoặc Không có", "desc": "Mô tả dị năng & giới hạn" },
       "items": ["Vật phẩm 1"],
       "buffs": [],
-      "dormMap": { "door": "g", "beds": "g", "desk": "g", "bath": "g", "balcony": "g", "note": "Ghi chú" }
+      "dormMap": { "door": "g", "beds": "g", "desk": "g", "bath": "g", "balcony": "g", "note": "Ghi chú an toàn phòng" },
+      "evaluation": null hoặc { "testName": "...", "dmg": "...", "tank": "...", "sup": "...", "eff": "4/5", "ach": "...", "grade": "MVP", "teamScore": "95/100 (Hoàn hảo)", "reward": "+1 Học phần, +18 Điểm tích lũy" },
+      "historyAdd": null hoặc { "name": "Tên bài kiểm tra", "score": "95/100", "reward": "+1 HP, +18đ" }
     }
   },
   "exam": {
-    "title": "Tên giai đoạn hoặc học phần hiện tại",
-    "missions": [{ "text": "Nhiệm vụ đang mở", "status": "active | done | fail" }],
-    "choices": [],
-    "evaluation": null
+    "title": "Tên giai đoạn hoặc học phần đang mở",
+    "missions": [{ "text": "Nội dung nhiệm vụ", "status": "active | done | fail" }],
+    "choices": []
   },
   "topNpcRooms": [
     "P.501|1|20|1 Học phần|Top 1 BXH (Ẩn danh)"
   ],
   "aliveTotal": 100,
   "deadRooms": [],
-  "notify": null hoặc { "tag": "QUY TẮC / NHIỆM VỤ MỚI / TỔNG KẾT", "title": "Tiêu đề", "lines": ["Dòng 1"] }
+  "notify": null hoặc { "tag": "QUY TẮC / ĐỀ THI 08:00 / BXH 20:00", "title": "Tiêu đề", "lines": ["Dòng 1"] },
+  "private_notify": {
+    "P404": null hoặc { "tag": "Ô NHIỄM / TỔNG KẾT CÁ NHÂN", "title": "Tiêu đề riêng", "lines": ["Điểm cá nhân: 100 - ... = X/100", "Điểm tích lũy: +... = +Yđ"] }
+  },
+  "gm_memory_update": {
+    "public_ledger_add": "1 dòng tóm tắt sự kiện bề mặt vừa xảy ra (hoặc chuỗi rỗng nếu chưa có cột mốc mới)",
+    "rng_state": "DAILY_BOOKS_RNG / PHASE_RNG hiện tại (cập nhật khi 08:00 hoặc sang chặng mới, giữ nguyên nếu không đổi)",
+    "sys_hid": "BẮT BUỘC GIỮ ĐỦ & CẬP NHẬT: [EXAM_SYLLABUS] | [RANK_BOARD] | [ENTITY_BOND] | [SURVIVORS_&_ORGS] | [NEO_DI_NANG] | [BUTTERFLY_SEEDS]"
+  }
 }
-Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn giữ đủ public_prose, clock, mode).
+Lưu ý: Chỉ cần ghi các trường thay đổi trong players_patch (dùng key không dấu chấm như "P404"). Luôn cập nhật gm_memory_update.sys_hid đầy đủ qua từng lượt để bảo toàn trí nhớ dài hạn.
 `;
 
-    // === HELPER: ĐỔI "P.404" -> "P404" ĐỂ LƯU FIREBASE KHÔNG LỖI DẤU CHẤM ===
+    // === HELPERS ===
     function toDbKey(str) {
       const m = String(str || "").match(/([1-5](?:0[1-9]|1\d|20))/);
       if (m) return "P" + m[1];
@@ -440,14 +573,23 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       if (!obj || typeof obj !== "object") return out;
       Object.entries(obj).forEach(([k, v]) => {
         const safeK = toDbKey(k);
-        if (safeK && v !== undefined) out[safeK] = v;
+        if (safeK && v != null && v !== "") out[safeK] = v;
       });
       return out;
     }
 
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    const $ = (id) => document.getElementById(id);
+
     // === STATE ===
     let db = null;
     let roleMode = "host";
+    let repoPromptText = "";
     let session = {
       code: "", roomId: "", roomKey: "", isHost: false,
       apiKey: "", model: "gemini-2.5-flash", customPrompt: ""
@@ -457,24 +599,81 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
     let activePhoneTab = "dorm";
     let isCallingAI = false;
 
-    const $ = (id) => document.getElementById(id);
-
-    // === INIT LOCAL STORAGE ===
-    function loadSavedInputs() {
-      const savedFb = localStorage.getItem("ktx_fb_config");
-      if (DEFAULT_FIREBASE_CONFIG) {
-        $("in-fb-config").value = JSON.stringify(DEFAULT_FIREBASE_CONFIG);
-        $("fb-status").textContent = "Đã cấu hình sẵn";
-      } else if (savedFb) {
-        $("in-fb-config").value = savedFb;
+    // === AUTO-LOAD ./prompt.txt FROM REPO ===
+    async function loadRepoPrompt() {
+      const pill = $("pill-prompt");
+      try {
+        const res = await fetch("./prompt.txt?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const txt = (await res.text()).trim();
+        if (txt.length < 100) throw new Error("File prompt.txt rỗng");
+        repoPromptText = txt;
+        const kb = (new Blob([txt]).size / 1024).toFixed(1);
+        pill.textContent = `🟢 Luật KTX Nữ: Đã nạp prompt.txt (${kb} KB)`;
+        pill.className = "sys-pill ok";
+      } catch {
+        repoPromptText = "";
+        pill.textContent = "🟡 Chưa có prompt.txt (dùng luật rút gọn mặc định)";
+        pill.className = "sys-pill warn";
       }
+    }
+
+    // === INIT LOCAL STORAGE & REJOIN CHECK ===
+    function initLobbyState() {
+      loadRepoPrompt();
       $("in-api-key").value = localStorage.getItem("ktx_gemini_key") || "";
       $("in-model").value = localStorage.getItem("ktx_gemini_model") || "gemini-2.5-flash";
       $("in-custom-prompt").value = localStorage.getItem("ktx_custom_prompt") || "";
+      $("in-fb-config").value = localStorage.getItem("ktx_fb_override") || "";
       $("in-name").value = localStorage.getItem("ktx_name") || "";
       $("in-major").value = localStorage.getItem("ktx_major") || "";
+
+      const savedSess = localStorage.getItem("ktx_last_session");
+      if (savedSess) {
+        try {
+          const s = JSON.parse(savedSess);
+          if (s && s.code && s.roomKey) {
+            $("rejoin-text").textContent = `Tiếp tục phiên trước: Sảnh ${s.code} • ${s.roomId}${s.isHost ? " (Chủ phòng)" : ""}`;
+            $("rejoin-bar").classList.remove("hidden");
+          }
+        } catch {}
+      }
     }
-    loadSavedInputs();
+    initLobbyState();
+
+    $("btn-clear-rejoin").addEventListener("click", () => {
+      localStorage.removeItem("ktx_last_session");
+      $("rejoin-bar").classList.add("hidden");
+    });
+
+    $("btn-rejoin").addEventListener("click", async () => {
+      showLobbyErr("");
+      try {
+        const s = JSON.parse(localStorage.getItem("ktx_last_session") || "{}");
+        if (!s.code || !s.roomKey) throw new Error("Không tìm thấy dữ liệu phiên cũ.");
+        connectFirebase();
+        const snap = await get(ref(db, `lobbies/${s.code}`));
+        if (!snap.exists()) {
+          localStorage.removeItem("ktx_last_session");
+          $("rejoin-bar").classList.add("hidden");
+          throw new Error(`Sảnh ${s.code} không còn tồn tại.`);
+        }
+        const apiKey = $("in-api-key").value.trim() || localStorage.getItem("ktx_gemini_key") || "";
+        if (s.isHost && !apiKey) throw new Error("Chủ phòng cần nhập lại Gemini API Key để tiếp tục điều khiển GM.");
+        session = {
+          code: s.code,
+          roomId: s.roomId,
+          roomKey: s.roomKey,
+          isHost: Boolean(s.isHost),
+          apiKey,
+          model: $("in-model").value.trim() || "gemini-2.5-flash",
+          customPrompt: $("in-custom-prompt").value.trim()
+        };
+        enterGameScreen();
+      } catch (err) {
+        showLobbyErr("⚠️ " + (err.message || err));
+      }
+    });
 
     document.querySelectorAll(".mode-pill").forEach((el) => {
       el.addEventListener("click", () => {
@@ -484,11 +683,10 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
         $("host-ai-panel").classList.toggle("hidden", roleMode !== "host");
         $("wrap-lobby-code").classList.toggle("hidden", roleMode === "host");
         $("btn-enter").textContent = roleMode === "host"
-          ? "⚡ Tạo sảnh & Bước vào Đêm 1"
+          ? "⚡ Tạo sảnh & Chuẩn bị Đêm 1"
           : "🚪 Tham gia sảnh Co-op";
       });
     });
-    $("wrap-lobby-code").classList.add("hidden");
 
     function showLobbyErr(msg) {
       const el = $("lobby-error");
@@ -503,19 +701,19 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
 
     function connectFirebase() {
       let cfg = DEFAULT_FIREBASE_CONFIG;
-      const txt = $("in-fb-config").value.trim();
-      if (txt) {
-        try { cfg = JSON.parse(txt); }
-        catch { throw new Error("firebaseConfig không đúng định dạng JSON hợp lệ."); }
-        localStorage.setItem("ktx_fb_config", txt);
+      const customTxt = $("in-fb-config").value.trim();
+      if (customTxt) {
+        try { cfg = JSON.parse(customTxt); }
+        catch { throw new Error("Firebase Config ghi đè không phải JSON hợp lệ."); }
+        localStorage.setItem("ktx_fb_override", customTxt);
+      } else {
+        localStorage.removeItem("ktx_fb_override");
       }
-      if (!cfg || !cfg.databaseURL) {
-        throw new Error("Thiếu firebaseConfig hoặc thiếu trường databaseURL (Realtime Database).");
-      }
+      if (!cfg || !cfg.databaseURL) throw new Error("Thiếu databaseURL của Firebase.");
       const app = getApps().length ? getApps()[0] : initializeApp(cfg);
       db = getDatabase(app);
-      $("fb-status").textContent = "Đã kết nối ✓";
-      $("fb-status").style.color = "#8af0b8";
+      $("pill-fb").textContent = "🟢 Máy chủ đồng bộ: Đã kết nối";
+      $("pill-fb").className = "sys-pill ok";
       return db;
     }
 
@@ -529,7 +727,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
     function normalizeRoomId(input, takenSet) {
       const m = String(input || "").match(/(?:^|[^\d])([1-5](?:0[1-9]|1\d|20))(?:[^\d]|$)/);
       if (m && !takenSet.has("P." + m[1])) return "P." + m[1];
-      for (let tries = 0; tries < 200; tries++) {
+      for (let tries = 0; tries < 250; tries++) {
         const f = Math.floor(Math.random() * 5) + 1;
         const r = Math.floor(Math.random() * 20) + 1;
         const id = "P." + String(f * 100 + r);
@@ -559,11 +757,13 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
         buffs: [],
         dormMap: { door: "g", beds: "g", desk: "g", bath: "g", balcony: "g", note: "Chưa vào phòng chỉ định." },
         inRoom: false, alive: true, role: "Phòng đơn",
+        evaluation: null,
+        examHistory: [],
         joinedAt: Date.now()
       };
     }
 
-    // === ENTER / CREATE LOBBY ===
+    // === CREATE OR JOIN LOBBY ===
     $("btn-enter").addEventListener("click", async () => {
       showLobbyErr("");
       try {
@@ -597,16 +797,24 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
             meta: {
               code, hostRoom: roomId, createdAt: Date.now(),
               mode: "pre", inExam: false, lastTurn: 0,
-              clock: { time: "Ngày 1 • Thứ Hai • 21:59", countdown: "02:00:00", status: "Đang chờ đủ người trong sảnh" },
+              clock: { time: "Năm 1 • Mùa Thu • Ngày 1 (Thứ Hai) • 21:59", countdown: "02:00:00", status: "Sảnh chờ trước giờ giới nghiêm" },
               aliveTotal: 100, deadRooms: [], topNpcRooms: [],
-              exam: { title: "Đêm 1: Giờ giới nghiêm (22:00–00:00)", missions: [], choices: [], evaluation: null, history: [] },
+              exam: { title: "Đêm 1: Giờ giới nghiêm (22:00–00:00)", missions: [], choices: [] },
               shop: [
                 { name: "Nước sạch & Đồ ăn khô KTX (1 ngày)", desc: "Dự trữ sinh tồn cơ bản", price: 2, stock: "Không giới hạn" },
                 { name: "Bộ sơ cứu cầm máu & khử trùng", desc: "Cầm máu, không tái tạo chi", price: 5, stock: "Tồn kho: 3" },
+                { name: "Thuốc tăng lực ngắn hạn", desc: "Tăng Thể lực/Tốc độ 30p (Phản phệ: kiệt sức 2h)", price: 10, stock: "Tồn kho: 1" },
                 { name: "Thuốc phục hồi tinh thần", desc: "Hồi +15 Khỏe mạnh & xóa ảo giác nhẹ", price: 12, stock: "Tồn kho: 1" },
-                { name: "Năng lực [Đánh giá]", desc: "Quét cấp độ khó ẩn của đề thi (10 lần/ngày)", price: 25, stock: "Tồn kho: 1" },
-                { name: "Huyết Thanh Tái Tạo Tứ Chi Hoàn Chỉnh", desc: "Mọc lại chi bị mất (hôn mê 24h)", price: 150, stock: "Tồn kho: 1" }
+                { name: "Bùa vàng đuổi quỷ (1 lần)", desc: "Đẩy lùi thực thể cấp thấp 10 giây (vô hiệu Boss)", price: 18, stock: "Tồn kho: 1" },
+                { name: "Năng lực [Đánh giá]", desc: "Quét cấp độ khó ẩn E-S của đề thi (10 lần/ngày)", price: 25, stock: "Tồn kho: 1" },
+                { name: "Thuốc Liền Xương & Khâu Mô Sâu", desc: "Chữa gãy xương nát, đứt gân (Phản phệ: sốt 40°C)", price: 50, stock: "Tồn kho: 1" },
+                { name: "Huyết Thanh Tái Tạo Tứ Chi Hoàn Chỉnh", desc: "Mọc lại chi bị mất (hôn mê sâu 24h)", price: 150, stock: "Tồn kho: 1" }
               ]
+            },
+            gmMemory: {
+              publicLedger: ["Ngày 1 (21:59): Nhóm sinh viên tập trung tại khu sân/sảnh tầng 1 ký túc xá ngay trước giờ giới nghiêm."],
+              rngState: "N/A (Đêm 1)",
+              sysHid: "[EXAM]: NONE | [RANK_BOARD]: Alive:100/100 | [ENTITY_BOND]: None | [SURVIVORS_&_ORGS]: Orgs: None (GĐ0) | [BUTTERFLY_SEEDS]: None"
             },
             players: { [roomKey]: player },
             turns: {},
@@ -618,22 +826,37 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
           session = { code, roomId, roomKey, isHost: true, apiKey, model, customPrompt };
         } else {
           code = $("in-code").value.trim().toUpperCase();
-          if (!code) throw new Error("Vui lòng nhập Mã sảnh từ Chủ phòng.");
+          if (!code) throw new Error("Vui lòng nhập Mã sảnh 6 ký tự từ Chủ phòng.");
           const snap = await get(ref(db, `lobbies/${code}`));
-          if (!snap.exists()) throw new Error(`Không tìm thấy sảnh "${code}". Kiểm tra lại mã hoặc Firebase config.`);
+          if (!snap.exists()) throw new Error(`Không tìm thấy sảnh "${code}".`);
           const data = snap.val();
           const existingPlayers = data.players || {};
           const pList = Object.values(existingPlayers);
-          if (pList.length >= 4) throw new Error("Sảnh đã đủ tối đa 4 người chơi thật.");
-          pList.forEach((p) => taken.add(p.roomId));
 
-          const roomId = normalizeRoomId($("in-room").value, taken);
-          const roomKey = toDbKey(roomId);
-          const player = buildInitialPlayer(roomId, name, gender, major, heldItem);
-          await set(ref(db, `lobbies/${code}/players/${roomKey}`), player);
-          session = { code, roomId, roomKey, isHost: false, apiKey: "", model: "", customPrompt: "" };
+          // Hỗ trợ tự động nối lại nếu trùng đúng Tên hoặc số phòng đã tồn tại trong sảnh
+          const reqRoomKey = $("in-room").value.trim() ? toDbKey($("in-room").value.trim()) : "";
+          const matchedExisting = pList.find((p) =>
+            (reqRoomKey && (p.roomKey || toDbKey(p.roomId)) === reqRoomKey) ||
+            p.name.toLowerCase() === name.toLowerCase()
+          );
+
+          if (matchedExisting) {
+            const rk = matchedExisting.roomKey || toDbKey(matchedExisting.roomId);
+            session = { code, roomId: matchedExisting.roomId, roomKey: rk, isHost: false, apiKey: "", model: "", customPrompt: "" };
+          } else {
+            if (pList.length >= 4) throw new Error("Sảnh đã đủ tối đa 4 người chơi thật.");
+            pList.forEach((p) => taken.add(p.roomId));
+            const roomId = normalizeRoomId($("in-room").value, taken);
+            const roomKey = toDbKey(roomId);
+            const player = buildInitialPlayer(roomId, name, gender, major, heldItem);
+            await set(ref(db, `lobbies/${code}/players/${roomKey}`), player);
+            session = { code, roomId, roomKey, isHost: false, apiKey: "", model: "", customPrompt: "" };
+          }
         }
 
+        localStorage.setItem("ktx_last_session", JSON.stringify({
+          code: session.code, roomId: session.roomId, roomKey: session.roomKey, isHost: session.isHost
+        }));
         enterGameScreen();
       } catch (err) {
         showLobbyErr("⚠️ " + (err.message || err));
@@ -644,7 +867,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       $("lobby-screen").classList.add("hidden");
       $("game-screen").classList.remove("hidden");
       $("lbl-code").textContent = `MÃ: ${session.code}`;
-      $("lbl-me").textContent = `${session.roomId} ${session.isHost ? "👑" : ""}`;
+      $("lbl-me").textContent = `${session.roomId}${session.isHost ? " 👑" : ""}`;
       $("btn-run-gm").classList.toggle("hidden", !session.isHost);
 
       const lobbyRef = ref(db, `lobbies/${session.code}`);
@@ -658,7 +881,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
     $("lbl-code").addEventListener("click", () => {
       navigator.clipboard?.writeText(session.code);
       $("lbl-code").textContent = `ĐÃ CHÉP: ${session.code}`;
-      setTimeout(() => { $("lbl-code").textContent = `MÃ: ${session.code}`; }, 1500);
+      setTimeout(() => { $("lbl-code").textContent = `MÃ: ${session.code}`; }, 1400);
     });
 
     $("btn-leave").addEventListener("click", () => {
@@ -666,11 +889,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       location.reload();
     });
 
-    // === RENDER ALL UI ===
-    function esc(s) {
-      return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-    }
-
+    // === RENDER ALL ===
     function renderAll() {
       if (!lobbyData) return;
       const meta = lobbyData.meta || {};
@@ -683,8 +902,32 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       const pending = (lobbyData.pendingActions && lobbyData.pendingActions[nextTurn]) || {};
 
       $("lbl-clock").textContent = meta.clock?.time || "Ngày 1 • 22:00";
-      $("btn-start-night1").classList.toggle("hidden", !(session.isHost && curTurn === 0));
+      const cdEl = $("lbl-cd");
+      if (meta.clock?.countdown) {
+        cdEl.textContent = "⏳ " + meta.clock.countdown;
+        cdEl.classList.remove("hidden");
+      } else {
+        cdEl.classList.add("hidden");
+      }
 
+      $("btn-start-night1").classList.toggle("hidden", !(session.isHost && curTurn === 0));
+      $("btn-hotfix").classList.toggle("hidden", !(session.isHost && curTurn > 0));
+
+      // Mini-HUD
+      const hpVal = Number(myP.hp ?? 100);
+      const maxHpVal = Number(myP.maxHp ?? 100);
+      const hpPct = (hpVal / Math.max(1, maxHpVal)) * 100;
+      const hpEl = $("mh-hp");
+      hpEl.textContent = `💚 ${hpVal}/${maxHpVal}`;
+      hpEl.className = "mh-hp" + (hpPct <= 30 ? " low" : hpPct <= 65 ? " mid" : "");
+      $("mh-cr").textContent = `🎓 ${myP.credits || 0}/100 HP`;
+      $("mh-pt").textContent = `💰 ${meta.mode === "official" ? (myP.points || 0) + " đ" : "Khóa"}`;
+      $("mh-rk").textContent = `🏆 ${myP.rank || "--"}`;
+      $("mh-talent").textContent = `✨ ${myP.talent?.item || "Tay không"}`;
+      const ledgerArr = Array.isArray(lobbyData.gmMemory?.publicLedger) ? lobbyData.gmMemory.publicLedger : [];
+      $("mh-mem").textContent = `🧠 Sổ ngầm: ${ledgerArr.length} mốc`;
+
+      // Squad pills
       const alivePlayers = Object.values(players).filter((p) => p.alive !== false);
       const lockedCount = alivePlayers.filter((p) => Boolean(pending[p.roomKey || toDbKey(p.roomId)])).length;
       $("squad-pills").innerHTML = Object.values(players).map((p) => {
@@ -698,50 +941,73 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
 
       const iLocked = Boolean(pending[session.roomKey]);
       $("lock-status").textContent = curTurn === 0
-        ? `Trong sảnh: ${Object.keys(players).length}/4 người — chờ Chủ phòng bấm Bắt đầu Đêm 1`
-        : (iLocked ? `Bạn đã chốt lượt (${lockedCount}/${alivePlayers.length} sẵn sàng)` : `Lượt #${nextTurn} — Chờ bạn nhập hành động (${lockedCount}/${alivePlayers.length})`);
+        ? `Trong sảnh: ${Object.keys(players).length}/4 phòng — chờ Chủ phòng Bắt đầu Đêm 1`
+        : (myP.alive === false
+            ? "💀 Bạn đã bị loại bỏ khỏi trò chơi."
+            : (iLocked ? `Đã chốt lượt #${nextTurn} (${lockedCount}/${alivePlayers.length} sẵn sàng)` : `Lượt #${nextTurn} — Chờ bạn chốt hành động (${lockedCount}/${alivePlayers.length})`));
 
       $("btn-lock").disabled = curTurn === 0 || myP.alive === false;
-      $("btn-lock").textContent = iLocked ? "✏️ Sửa hành động đã chốt" : "🔒 Chốt lượt";
+      $("btn-lock").textContent = iLocked ? "✏️ Sửa hành động" : "🔒 Chốt lượt";
       $("btn-run-gm").disabled = curTurn === 0 || isCallingAI;
       $("btn-run-gm").textContent = isCallingAI ? "⏳ Quản trò đang xử lý..." : `⚡ Chạy lượt AI (${lockedCount}/${alivePlayers.length})`;
+      $("btn-hotfix").disabled = isCallingAI;
 
+      // Story Feed
       const turnsObj = lobbyData.turns || {};
       const turnKeys = Object.keys(turnsObj).map(Number).sort((a, b) => a - b);
       const feed = $("story-feed");
-      const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+      const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 140;
 
       if (!turnKeys.length) {
         feed.innerHTML = `<div class="turn-card">
-          <div class="turn-meta"><span>SẢNH CHỜ CO-OP • MÃ ${esc(session.code)}</span><span>${Object.keys(players).length}/4 phòng</span></div>
-          <div class="prose">Gửi mã <strong>${esc(session.code)}</strong> cho 1–3 người bạn để họ vào chung tòa KTX (mỗi người một phòng đơn).\n\nKhi đủ người, Chủ phòng bấm nút <strong>🌙 Bắt đầu Đêm 1 (22:00)</strong> ở góc trên bên phải để đồng loạt cúp điện toàn trường.</div>
+          <div class="turn-meta"><span>SẢNH CHỜ CO-OP • MÃ ${esc(session.code)}</span><span>${Object.keys(players).length}/4 phòng đơn</span></div>
+          <div class="prose">Gửi mã <strong>${esc(session.code)}</strong> kèm link web cho 1–3 người bạn để họ vào chung khu ký túc xá.\n\nKhi mọi người đã vào đủ, Chủ phòng bấm <strong>🌙 Bắt đầu Đêm 1 (22:00)</strong> ở góc trên bên phải để đồng loạt cúp điện toàn trường.</div>
         </div>`;
       } else {
         feed.innerHTML = turnKeys.map((k) => {
           const t = turnsObj[k];
           const myPriv = t.privatePov && t.privatePov[session.roomKey];
+          const myNotify = t.privateNotify && t.privateNotify[session.roomKey];
           const actList = t.publicActions
             ? Object.entries(t.publicActions).map(([rKey, act]) => {
                 const label = (players[rKey] && players[rKey].roomId) || rKey;
                 return `<strong>${esc(label)}:</strong> ${esc(act)}`;
               }).join(" &nbsp;|&nbsp; ")
             : "";
+
+          const renderNotifBox = (n, isPriv) => {
+            if (!n || typeof n !== "object") return "";
+            const lines = Array.isArray(n.lines) ? n.lines : (n.lines ? [n.lines] : []);
+            return `<div class="notify-inline ${isPriv ? "priv" : ""}">
+              <div class="notify-h">📱 ${esc(n.tag || (isPriv ? "THÔNG BÁO RIÊNG" : "THÔNG BÁO APP"))}${n.title ? " — " + esc(n.title) : ""}</div>
+              ${lines.map((l) => `<div class="notify-line">▸ ${esc(l)}</div>`).join("")}
+            </div>`;
+          };
+
           return `<div class="turn-card">
             <div class="turn-meta"><span>LƯỢT #${k}</span><span>${esc(t.clockTime || "")}</span></div>
             ${actList ? `<div class="actions-recap">${actList}</div>` : ""}
             <div class="prose">${esc(t.publicProse || "")}</div>
-            ${myPriv ? `<div class="private-box"><div class="private-label">👁️ Góc nhìn mật — Chỉ ${esc(session.roomId)} thấy</div><div class="prose" style="font-size:13.2px;">${esc(myPriv)}</div></div>` : ""}
+            ${myPriv ? `<div class="private-box"><div class="private-label">👁️ Góc nhìn mật — Chỉ ${esc(session.roomId)} thấy</div><div class="prose" style="font-size:13.3px;">${esc(myPriv)}</div></div>` : ""}
+            ${renderNotifBox(t.notify, false)}
+            ${renderNotifBox(myNotify, true)}
           </div>`;
         }).join("");
         if (atBottom) feed.scrollTop = feed.scrollHeight;
       }
 
+      // Journal (Public Memory Ledger ONLY — sysHid stays 100% invisible!)
+      $("ledger-list").innerHTML = ledgerArr.length
+        ? ledgerArr.map((item) => `<div class="ledger-row">${esc(item)}</div>`).join("")
+        : `<div style="color:var(--c-muted);font-size:12px;font-style:italic;">Chưa có cột mốc sự kiện nào.</div>`;
+
+      // Comms
       const targetSel = $("comm-target");
       const prevTarget = targetSel.value;
       targetSel.innerHTML = `<option value="ALL">📢 Kênh chung (Hành lang / Sảnh)</option>` +
         Object.values(players)
           .filter((p) => p.roomId !== session.roomId)
-          .map((p) => `<option value="${esc(p.roomId)}">🚪 ${esc(p.roomId)} (${p.alive === false ? "Đã loại" : "Đang kết nối"})</option>`)
+          .map((p) => `<option value="${esc(p.roomId)}">🚪 ${esc(p.roomId)} (${p.alive === false ? "Đã loại" : "Đang hoạt động"})</option>`)
           .join("");
       if ([...targetSel.options].some((o) => o.value === prevTarget)) targetSel.value = prevTarget;
 
@@ -753,15 +1019,37 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
         ? commsArr.map((c) => {
             const cls = c.type === "invite" ? "invite" : (c.to !== "ALL" ? "direct" : "");
             const tag = c.type === "invite" ? "✉️ LỜI MỜI GHÉP ĐỘI" : (c.to === "ALL" ? "📢 KÊNH CHUNG" : `📞 RIÊNG → ${c.to}`);
+            const showBtns = c.type === "invite" && c.to === session.roomId;
             return `<div class="comm-item ${cls}">
-              <div class="comm-head"><span>${esc(c.from)} • ${esc(tag)}</span><span>${new Date(c.ts || Date.now()).toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" })}</span></div>
+              <div class="comm-head"><span>${esc(c.from)} • ${esc(tag)}</span><span>${new Date(c.ts || Date.now()).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span></div>
               <div>${esc(c.text)}</div>
+              ${showBtns ? `<div class="btn-row" style="margin-top:4px;">
+                <button class="btn btn-green btn-sm" data-quick-reply="join" data-from="${esc(c.from)}">✓ Đồng ý (/join ${esc(c.from)})</button>
+                <button class="btn btn-sm" data-quick-reply="deny" data-from="${esc(c.from)}">✕ Từ chối (/deny ${esc(c.from)})</button>
+              </div>` : ""}
             </div>`;
           }).join("")
-        : `<div style="color:var(--c-muted);font-size:12px;font-style:italic;">Chưa có tín hiệu liên lạc giữa các phòng. Bạn có thể gọi riêng (/call) hoặc gửi lời mời ghép đội (/invite) ngay tại đây mà không tốn lượt AI.</div>`;
+        : `<div style="color:var(--c-muted);font-size:12px;font-style:italic;">Kênh liên lạc trực tiếp giữa các phòng đơn (không tốn lượt AI). Dùng để gọi điện /call, thương lượng trao đổi hoặc mời ghép đội /invite.</div>`;
 
       renderDormPhone(meta, players, myP, commsArr);
     }
+
+    // Quick reply buttons inside Comms
+    $("comms-log").addEventListener("click", async (ev) => {
+      const btn = ev.target.closest("[data-quick-reply]");
+      if (!btn || !db) return;
+      const act = btn.dataset.quickReply;
+      const from = btn.dataset.from;
+      const cmd = `/${act} ${from}`;
+      $("in-action").value = cmd;
+      await push(ref(db, `lobbies/${session.code}/comms`), {
+        from: session.roomId,
+        to: from,
+        type: "call",
+        text: act === "join" ? `[Xác nhận ghép đội] Đã chọn ${cmd}` : `[Từ chối ghép đội] Đã chọn ${cmd}`,
+        ts: Date.now()
+      });
+    });
 
     function renderDormPhone(meta, players, myP, commsArr) {
       if (typeof window.initDormApp !== "function") return;
@@ -810,16 +1098,17 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
         });
 
       const lastTurnObj = meta.lastTurn && lobbyData.turns ? lobbyData.turns[meta.lastTurn] : null;
-      const alertTxt = lastTurnObj?.notify?.title
-        ? `${lastTurnObj.notify.tag || "THÔNG BÁO"}: ${lastTurnObj.notify.title}`
-        : "";
+      const myPrivNotif = lastTurnObj?.privateNotify?.[session.roomKey];
+      const topAlert = myPrivNotif?.title
+        ? `${myPrivNotif.tag || "RIÊNG"}: ${myPrivNotif.title}`
+        : (lastTurnObj?.notify?.title ? `${lastTurnObj.notify.tag || "APP"}: ${lastTurnObj.notify.title}` : "");
 
       const dormState = {
         view: "full",
         activeTab: activePhoneTab,
         mode: meta.mode || "pre",
         clock: meta.clock || { time: "Ngày 1 • 22:00", countdown: "02:00:00", status: "" },
-        alert: alertTxt,
+        alert: topAlert,
         user: {
           name: myP.name,
           dorm: myP.roomId,
@@ -838,7 +1127,13 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
         },
         dormMap: myP.dormMap || { door: "g", beds: "g", desk: "g", bath: "g", balcony: "g", note: "Bình thường" },
         team: teamForPhone,
-        exam: meta.exam || { title: "Đêm 1", missions: [], choices: [], evaluation: null, history: [] },
+        exam: {
+          title: meta.exam?.title || "Đêm 1",
+          missions: Array.isArray(meta.exam?.missions) ? meta.exam.missions : [],
+          choices: Array.isArray(meta.exam?.choices) ? meta.exam.choices : [],
+          evaluation: myP.evaluation || null,
+          history: Array.isArray(myP.examHistory) ? myP.examHistory : []
+        },
         shop: Array.isArray(meta.shop) ? meta.shop : [],
         invites: pendingInvites,
         aliveTotal: Number(meta.aliveTotal ?? 100),
@@ -860,7 +1155,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       }
     });
 
-    // === PLAYER LOCK-IN ACTION ===
+    // === LOCK ACTION ===
     $("btn-lock").addEventListener("click", async () => {
       showGameErr("");
       if (!lobbyData) return;
@@ -878,7 +1173,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       });
     });
 
-    // === REAL-TIME COMMS (NO AI COST) ===
+    // === REAL-TIME COMMS ===
     $("btn-send-comm").addEventListener("click", async () => {
       const text = $("comm-text").value.trim();
       if (!text || !db) return;
@@ -893,7 +1188,7 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
     });
 
     // === HOST CALLS GEMINI API ===
-    async function runGMTurn(isStartNight1 = false) {
+    async function runGMTurn({ isStartNight1 = false, hotfixNote = "" } = {}) {
       if (!session.isHost || isCallingAI || !lobbyData) return;
       showGameErr("");
       isCallingAI = true;
@@ -902,12 +1197,22 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
       try {
         const meta = lobbyData.meta || {};
         const players = lobbyData.players || {};
+        const gmMem = lobbyData.gmMemory || {};
         const curTurn = Number(meta.lastTurn) || 0;
-        const nextTurn = curTurn + 1;
-        const pending = (lobbyData.pendingActions && lobbyData.pendingActions[nextTurn]) || {};
+        const targetTurn = hotfixNote ? curTurn : curTurn + 1;
 
+        const pending = hotfixNote
+          ? (lobbyData.turns?.[curTurn]?.rawPending || {})
+          : ((lobbyData.pendingActions && lobbyData.pendingActions[targetTurn]) || {});
+
+        // Rolling 6 recent turns (before targetTurn) + Full persistent gmMemory
         const turnsObj = lobbyData.turns || {};
-        const recentKeys = Object.keys(turnsObj).map(Number).sort((a, b) => a - b).slice(-8);
+        const recentKeys = Object.keys(turnsObj)
+          .map(Number)
+          .filter((n) => n < targetTurn)
+          .sort((a, b) => a - b)
+          .slice(-6);
+
         const historySummary = recentKeys.map((k) => {
           const t = turnsObj[k];
           return `[Lượt ${k} | ${t.clockTime || ""}]\nHành động: ${JSON.stringify(t.publicActions || {})}\nDiễn biến chung: ${t.publicProse}\nGóc nhìn mật: ${JSON.stringify(t.privatePov || {})}`;
@@ -917,33 +1222,55 @@ Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn
           roomId: p.roomId, roomKey: p.roomKey || toDbKey(p.roomId),
           name: p.name, gender: p.gender, major: p.major,
           heldItem22h: p.heldItem, alive: p.alive, inRoom: p.inRoom,
-          hp: p.hp, credits: p.credits, points: p.points, bxhScore: p.bxhScore,
-          role: p.role, talent: p.talent, items: p.items
+          hp: p.hp, maxHp: p.maxHp, limbs: p.limbs, stats: p.stats,
+          credits: p.credits, points: p.points, bxhScore: p.bxhScore, rank: p.rank,
+          role: p.role, talent: p.talent, items: p.items, buffs: p.buffs
         }));
 
-        const actionsBlock = isStartNight1
-          ? "KHỞI TẠO ĐÊM 1 (22:00): Cúp điện toàn trường lúc 22:00, giọng 'Giáo viên' vang lên, thức tỉnh dị năng cho ai đang cầm đồ lúc 22:00, giao đúng Room ID chỉ định của từng người chơi trên điện thoại và thả họ ở sân/sảnh tầng 1 đầy hỗn loạn."
-          : Object.values(players)
-              .filter((p) => p.alive !== false)
-              .map((p) => {
-                const rk = p.roomKey || toDbKey(p.roomId);
-                const act = pending[rk];
-                return act
-                  ? `- ${p.roomId} (key: ${rk}, ${p.name}): Hành động công khai: "${act.text}" | Hành động/suy nghĩ ngầm (CHỈ phản hồi vào private_pov["${rk}"]): "${act.secretNote || "Không có"}"`
-                  : `- ${p.roomId} (key: ${rk}, ${p.name}): (Không kịp chốt lượt — chần chừ/đứng im tại chỗ)`;
-              }).join("\n");
+        let actionsBlock = "";
+        if (isStartNight1 || (hotfixNote && targetTurn === 1)) {
+          actionsBlock = "KHỞI TẠO ĐÊM 1 (22:00): Cúp điện toàn trường lúc 22:00, giọng 'Giáo viên' vang lên, thức tỉnh dị năng cho từng người chơi có cầm đồ lúc 22:00, giao đúng Room ID chỉ định của mỗi người trên điện thoại và thả họ ở sân/sảnh tầng 1 đầy hỗn loạn.";
+        } else {
+          actionsBlock = Object.values(players)
+            .filter((p) => p.alive !== false)
+            .map((p) => {
+              const rk = p.roomKey || toDbKey(p.roomId);
+              const act = pending[rk];
+              return act
+                ? `- ${p.roomId} (key: ${rk}, ${p.name}): Hành động công khai: "${act.text}" | Suy nghĩ/Hành động ngầm (CHỈ phản hồi vào private_pov["${rk}"]): "${act.secretNote || "Không có"}"`
+                : `- ${p.roomId} (key: ${rk}, ${p.name}): (Không chốt lượt — đứng im/chần chừ)`;
+            }).join("\n");
+        }
+        if (hotfixNote) {
+          actionsBlock += `\n\n[CHỈ DẪN /HOTFIX TỪ CHỦ PHÒNG — VIẾT LẠI LƯỢT #${targetTurn} KHÔNG ĐỀ CẬP META]: ${hotfixNote}`;
+        }
 
-        const systemText = (session.customPrompt || BUILTIN_COOP_RULES) + "\n\n" + JSON_OUTPUT_CONTRACT;
-        const userMessage = `TRẠNG THÁI HIỆN TẠI (Lượt ${curTurn} -> ${nextTurn}):
-Mode: ${meta.mode} | Clock: ${JSON.stringify(meta.clock)} | AliveTotal: ${meta.aliveTotal} | DeadRooms: ${JSON.stringify(meta.deadRooms || [])}
+        const baseRules = session.customPrompt || repoPromptText || BUILTIN_FALLBACK_RULES;
+        const systemText = baseRules + "\n\n" + COOP_WEB_OVERRIDE;
+
+        const userMessage = `=== SỔ NHỚ DÀI HẠN CỦA QUẢN TRÒ (BẮT BUỘC TUÂN THỦ & CẬP NHẬT) ===
+[PUBLIC MEMORY LEDGER]:
+${(gmMem.publicLedger || []).map((x) => "- " + x).join("\n")}
+
+[HIDDEN RNG STATE]:
+${gmMem.rngState || "N/A"}
+
+[HIDDEN SYS_HID]:
+${gmMem.sysHid || "NONE"}
+
+=== TRẠNG THÁI HIỆN TẠI (Đang xử lý Lượt #${targetTurn}) ===
+Mode: ${meta.mode} | inExam: ${Boolean(meta.inExam)} | Clock: ${JSON.stringify(meta.clock)}
+AliveTotal: ${meta.aliveTotal} | DeadRooms: ${JSON.stringify(meta.deadRooms || [])}
+TopNpcRooms: ${JSON.stringify(meta.topNpcRooms || [])}
 Exam hiện tại: ${JSON.stringify(meta.exam || {})}
+
 DANH SÁCH NGƯỜI CHƠI THẬT (Co-op):
 ${JSON.stringify(playersSnapshot, null, 2)}
 
-LỊCH SỬ GẦN ĐÂY:
+DIỄN BIẾN 6 LƯỢT GẦN NHẤT:
 ${historySummary || "(Mới bắt đầu)"}
 
-ĐẦU VÀO LƯỢT #${nextTurn}:
+ĐẦU VÀO LƯỢT #${targetTurn}:
 ${actionsBlock}`;
 
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(session.model)}:generateContent?key=${encodeURIComponent(session.apiKey)}`;
@@ -955,7 +1282,8 @@ ${actionsBlock}`;
             contents: [{ role: "user", parts: [{ text: userMessage }] }],
             generationConfig: {
               responseMimeType: "application/json",
-              temperature: 0.9
+              temperature: 0.9,
+              maxOutputTokens: 8192
             }
           })
         });
@@ -971,21 +1299,31 @@ ${actionsBlock}`;
         const publicActions = {};
         Object.keys(pending).forEach((rKey) => { publicActions[rKey] = pending[rKey].text; });
 
-        updates[`lobbies/${session.code}/turns/${nextTurn}`] = {
-          turn: nextTurn,
+        updates[`lobbies/${session.code}/turns/${targetTurn}`] = {
+          turn: targetTurn,
           clockTime: ai.clock?.time || meta.clock?.time || "",
-          publicActions: isStartNight1 ? { SYSTEM: "22:00 — Cúp điện toàn trường" } : publicActions,
+          publicActions: (isStartNight1 || (hotfixNote && targetTurn === 1))
+            ? { SYSTEM: "22:00 — Cúp điện toàn trường" }
+            : publicActions,
+          rawPending: pending,
           publicProse: ai.public_prose || "(Không có nội dung phản hồi)",
           privatePov: sanitizeKeyMap(ai.private_pov),
           notify: ai.notify || null,
+          privateNotify: sanitizeKeyMap(ai.private_notify),
           ts: Date.now()
         };
 
-        updates[`lobbies/${session.code}/meta/lastTurn`] = nextTurn;
+        updates[`lobbies/${session.code}/meta/lastTurn`] = targetTurn;
         if (ai.mode) updates[`lobbies/${session.code}/meta/mode`] = ai.mode;
         if (typeof ai.inExam === "boolean") updates[`lobbies/${session.code}/meta/inExam`] = ai.inExam;
         if (ai.clock) updates[`lobbies/${session.code}/meta/clock`] = ai.clock;
-        if (ai.exam) updates[`lobbies/${session.code}/meta/exam`] = ai.exam;
+        if (ai.exam) {
+          updates[`lobbies/${session.code}/meta/exam`] = {
+            title: ai.exam.title || meta.exam?.title || "",
+            missions: Array.isArray(ai.exam.missions) ? ai.exam.missions : (meta.exam?.missions || []),
+            choices: Array.isArray(ai.exam.choices) ? ai.exam.choices : (meta.exam?.choices || [])
+          };
+        }
         if (ai.aliveTotal != null) updates[`lobbies/${session.code}/meta/aliveTotal`] = ai.aliveTotal;
         if (Array.isArray(ai.deadRooms)) {
           const mergedDead = [...new Set([...(meta.deadRooms || []), ...ai.deadRooms])];
@@ -995,12 +1333,32 @@ ${actionsBlock}`;
           updates[`lobbies/${session.code}/meta/topNpcRooms`] = ai.topNpcRooms;
         }
 
+        // Update Hidden GM Memory silently
+        if (ai.gm_memory_update && typeof ai.gm_memory_update === "object") {
+          const mUp = ai.gm_memory_update;
+          if (mUp.sys_hid) updates[`lobbies/${session.code}/gmMemory/sysHid`] = String(mUp.sys_hid);
+          if (mUp.rng_state) updates[`lobbies/${session.code}/gmMemory/rngState`] = String(mUp.rng_state);
+          if (mUp.public_ledger_add && String(mUp.public_ledger_add).trim()) {
+            const nextLedger = Array.isArray(gmMem.publicLedger) ? [...gmMem.publicLedger] : [];
+            const line = String(mUp.public_ledger_add).trim();
+            if (hotfixNote && nextLedger.length > 0) nextLedger[nextLedger.length - 1] = line;
+            else nextLedger.push(line);
+            updates[`lobbies/${session.code}/gmMemory/publicLedger`] = nextLedger.slice(-60);
+          }
+        }
+
+        // Per-player patches (including private evaluation & personal examHistory)
         if (ai.players_patch && typeof ai.players_patch === "object") {
           Object.entries(ai.players_patch).forEach(([rid, patch]) => {
             const rKey = toDbKey(rid);
             if (!players[rKey] || !patch || typeof patch !== "object") return;
             Object.entries(patch).forEach(([field, val]) => {
-              if (val !== undefined && !/[.#$\/\[\]]/.test(field)) {
+              if (val === undefined || /[.#$\/\[\]]/.test(field)) return;
+              if (field === "historyAdd" && val) {
+                const prevHist = Array.isArray(players[rKey].examHistory) ? [...players[rKey].examHistory] : [];
+                prevHist.push(val);
+                updates[`lobbies/${session.code}/players/${rKey}/examHistory`] = prevHist;
+              } else {
                 updates[`lobbies/${session.code}/players/${rKey}/${field}`] = val;
               }
             });
@@ -1008,9 +1366,11 @@ ${actionsBlock}`;
         }
 
         await update(ref(db), updates);
-        await remove(ref(db, `lobbies/${session.code}/pendingActions/${nextTurn}`));
-        $("in-action").value = "";
-        $("in-secret").value = "";
+        if (!hotfixNote) {
+          await remove(ref(db, `lobbies/${session.code}/pendingActions/${targetTurn}`));
+          $("in-action").value = "";
+          $("in-secret").value = "";
+        }
       } catch (err) {
         showGameErr("⚠️ Lỗi gọi Quản trò AI: " + (err.message || err));
       } finally {
@@ -1019,17 +1379,25 @@ ${actionsBlock}`;
       }
     }
 
-    $("btn-start-night1").addEventListener("click", () => runGMTurn(true));
-    $("btn-run-gm").addEventListener("click", () => runGMTurn(false));
+    $("btn-start-night1").addEventListener("click", () => runGMTurn({ isStartNight1: true }));
+    $("btn-run-gm").addEventListener("click", () => runGMTurn());
+    $("btn-hotfix").addEventListener("click", () => {
+      const note = prompt("Nhập chỉ dẫn /hotfix để AI viết lại lượt vừa rồi (VD: sửa điểm trừ hoặc giữ đúng góc nhìn):");
+      if (note && note.trim()) runGMTurn({ hotfixNote: note.trim() });
+    });
 
     // === TABS (DESKTOP & MOBILE) ===
+    function showRightSub(target) {
+      $("sub-phone").classList.toggle("hidden", target !== "phone");
+      $("sub-comms").classList.toggle("hidden", target !== "comms");
+      $("sub-journal").classList.toggle("hidden", target !== "journal");
+    }
+
     document.querySelectorAll(".r-tab").forEach((t) => {
       t.addEventListener("click", () => {
         document.querySelectorAll(".r-tab").forEach((x) => x.classList.remove("active"));
         t.classList.add("active");
-        const target = t.dataset.rtab;
-        $("sub-phone").classList.toggle("hidden", target !== "phone");
-        $("sub-comms").classList.toggle("hidden", target !== "comms");
+        showRightSub(t.dataset.rtab);
       });
     });
 
@@ -1040,13 +1408,7 @@ ${actionsBlock}`;
         const m = t.dataset.mtab;
         $("pane-story").classList.toggle("m-active", m === "story");
         $("pane-right").classList.toggle("m-active", m !== "story");
-        if (m === "phone") {
-          $("sub-phone").classList.remove("hidden");
-          $("sub-comms").classList.add("hidden");
-        } else if (m === "comms") {
-          $("sub-phone").classList.add("hidden");
-          $("sub-comms").classList.remove("hidden");
-        }
+        if (m !== "story") showRightSub(m);
       });
     });
   </script>
