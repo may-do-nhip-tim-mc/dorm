@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="vi" class="coop-html">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KTX Sinh Tồn — Co-op 100 Phòng Đơn</title>
+  <style>
+    :root {
+      --c-bg: #070607;
+      --c-surface: #110d0f;
+      --c-surface-2: #191215;
+      --c-border: #381b21;
+      --c-text: #f1e9eb;
+      --c-muted: #9e848a;
+      --c-red: #e0313d;
+      --c-red-soft: rgba(224, 49, 61, 0.16);
+      --c-green: #2fbf71;
+      --c-warn: #e6a23c;
+      --c-mono: "JetBrains Mono", Consolas, monospace;
+    }
+    html.coop-html, body.coop-body {
+      background: var(--c-bg) !important;
+      color: var(--c-text) !important;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+
+    /* === LOBBY SCREEN === */
+    .lobby-wrap {
+      max-width: 780px; margin: 0 auto; padding: 20px 14px 40px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .lobby-hero {
+      border: 1px solid var(--c-border); border-left: 4px solid var(--c-red);
+      background: radial-gradient(circle at top right, var(--c-red-soft), transparent 55%), var(--c-surface);
+      border-radius: 12px; padding: 16px 18px;
+    }
+    .lobby-hero h1 { font-size: 20px; color: #fff; margin-bottom: 6px; letter-spacing: 0.4px; }
+    .lobby-hero p { font-size: 13px; color: var(--c-muted); line-height: 1.5; }
+    .panel {
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .panel-title {
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+      color: var(--c-red); display: flex; justify-content: space-between; align-items: center;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 11.5px; color: var(--c-muted); font-weight: 600; }
+    .field input, .field select, .field textarea {
+      background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border);
+      border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--c-red); }
+    .field textarea { resize: vertical; min-height: 76px; font-family: var(--c-mono); font-size: 11.5px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn {
+      padding: 9px 14px; border-radius: 8px; border: 1px solid var(--c-border);
+      background: var(--c-surface-2); color: var(--c-text); font-weight: 700; font-size: 12.5px;
+      cursor: pointer; transition: 0.15s;
+    }
+    .btn:hover { border-color: #fff; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-red { background: var(--c-red); border-color: var(--c-red); color: #fff; }
+    .btn-red:hover { filter: brightness(1.1); }
+    .btn-green { background: rgba(47, 191, 113, 0.18); border-color: var(--c-green); color: #8af0b8; }
+    .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mode-pill {
+      padding: 9px; border-radius: 8px; text-align: center; cursor: pointer;
+      border: 1px solid var(--c-border); background: var(--c-bg); color: var(--c-muted); font-weight: 700;
+    }
+    .mode-pill.active { background: var(--c-red-soft); border-color: var(--c-red); color: #fff; }
+    .err-banner {
+      background: rgba(224, 49, 61, 0.15); border: 1px solid var(--c-red); color: #ff9c9e;
+      padding: 8px 12px; border-radius: 8px; font-size: 12.5px;
+    }
+
+    /* === MAIN CO-OP SHELL === */
+    .coop-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .coop-top {
+      background: var(--c-surface); border-bottom: 1px solid var(--c-border);
+      padding: 8px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+      flex-shrink: 0;
+    }
+    .top-left { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .badge {
+      font-family: var(--c-mono); font-size: 11px; padding: 3px 8px; border-radius: 99px;
+      border: 1px solid var(--c-border); background: var(--c-surface-2); color: var(--c-text);
+    }
+    .badge.red { border-color: var(--c-red); background: var(--c-red-soft); color: #fff; cursor: pointer; }
+    .squad-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .p-pill {
+      font-family: var(--c-mono); font-size: 11px; padding: 3px 8px; border-radius: 6px;
+      background: var(--c-bg); border: 1px solid var(--c-border); color: var(--c-muted);
+    }
+    .p-pill.ready { border-color: var(--c-green); color: #8af0b8; }
+    .p-pill.dead { border-color: var(--c-red); color: #ff8e91; text-decoration: line-through; }
+
+    .mobile-tabs {
+      display: none; background: var(--c-surface); border-bottom: 1px solid var(--c-border);
+      grid-template-columns: repeat(3, 1fr); flex-shrink: 0;
+    }
+    .m-tab {
+      padding: 9px 6px; text-align: center; font-size: 12px; font-weight: 700;
+      color: var(--c-muted); border-bottom: 2px solid transparent; cursor: pointer;
+    }
+    .m-tab.active { color: #fff; border-bottom-color: var(--c-red); background: var(--c-red-soft); }
+
+    .coop-body-grid {
+      display: grid; grid-template-columns: 1.05fr 0.95fr; flex: 1; min-height: 0; overflow: hidden;
+    }
+    .col-story {
+      display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--c-border);
+    }
+    .story-feed {
+      flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .turn-card {
+      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px;
+      padding: 13px 15px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .turn-meta {
+      font-family: var(--c-mono); font-size: 11px; color: var(--c-muted);
+      display: flex; justify-content: space-between; border-bottom: 1px dashed var(--c-border); padding-bottom: 6px;
+    }
+    .prose { font-size: 14px; line-height: 1.7; color: #efe7e9; white-space: pre-wrap; }
+    .private-box {
+      background: #1a0b0f; border: 1px solid var(--c-red); border-left: 4px solid var(--c-red);
+      border-radius: 8px; padding: 10px 12px;
+    }
+    .private-label {
+      font-family: var(--c-mono); font-size: 10.5px; color: #ff8e91; font-weight: 700;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .actions-recap {
+      font-size: 12px; color: var(--c-muted); background: var(--c-bg); padding: 7px 10px;
+      border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .composer {
+      background: var(--c-surface); border-top: 1px solid var(--c-border);
+      padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+    }
+    .composer textarea {
+      width: 100%; min-height: 58px; max-height: 130px; resize: vertical;
+      background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border);
+      border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+    }
+    .composer input.secret-in {
+      width: 100%; background: #140a0d; color: #ffd0d3; border: 1px dashed var(--c-border);
+      border-radius: 7px; padding: 6px 9px; font-size: 12px;
+    }
+    .comp-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+
+    /* === RIGHT PANE: PHONE + COMMS === */
+    .col-right { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .right-subtabs {
+      display: flex; background: var(--c-surface); border-bottom: 1px solid var(--c-border); flex-shrink: 0;
+    }
+    .r-tab {
+      flex: 1; padding: 8px; text-align: center; font-size: 12px; font-weight: 700;
+      color: var(--c-muted); cursor: pointer; border-bottom: 2px solid transparent;
+    }
+    .r-tab.active { color: #fff; border-bottom-color: var(--c-red); background: var(--c-red-soft); }
+    .phone-scroll { flex: 1; overflow-y: auto; padding: 10px; }
+    .comms-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px; gap: 10px; }
+    .comms-log {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px; padding: 10px;
+    }
+    .comm-item {
+      padding: 8px 10px; border-radius: 8px; background: var(--c-surface-2); border-left: 3px solid var(--c-muted);
+      font-size: 12.5px;
+    }
+    .comm-item.direct { border-left-color: var(--c-warn); background: rgba(230,162,60,0.08); }
+    .comm-item.invite { border-left-color: var(--c-red); background: var(--c-red-soft); }
+    .comm-head { font-family: var(--c-mono); font-size: 10.5px; color: var(--c-muted); margin-bottom: 3px; display: flex; justify-content: space-between; }
+
+    @media (max-width: 860px) {
+      .mobile-tabs { display: grid; }
+      .right-subtabs { display: none; }
+      .coop-body-grid { grid-template-columns: 1fr; }
+      .col-story, .col-right { display: none; border-right: none; }
+      .col-story.m-active, .col-right.m-active { display: flex; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="coop-body">
+
+  <!-- ==================== MÀN HÌNH SẢNH (LOBBY) ==================== -->
+  <div id="lobby-screen" class="lobby-wrap">
+    <div class="lobby-hero">
+      <h1>🏫 TRÒ CHƠI SINH TỒN PHÒNG NGỦ — CO-OP (2–4 NGƯỜI)</h1>
+      <p>Mỗi người chơi nhận 1 phòng đơn độc lập trong Khu 100 Phòng (P.101–P.520). Chỉ Chủ phòng cần Gemini API Key; người chơi khác vào bằng Mã sảnh, giữ góc nhìn mật riêng và đồng bộ BXH 100 phòng thời gian thực qua Firebase.</p>
+    </div>
+
+    <div id="lobby-error" class="err-banner hidden"></div>
+
+    <!-- Cấu hình Firebase -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>1. Kết nối Firebase Realtime Database</span>
+        <span id="fb-status" style="font-family:var(--c-mono);color:var(--c-muted);">Chưa kiểm tra</span>
+      </div>
+      <div class="field">
+        <label>Dán object firebaseConfig (JSON) từ Firebase Console (lưu sẵn trong máy, chỉ cần dán 1 lần — hoặc sửa thẳng hằng số DEFAULT_FIREBASE_CONFIG trong code)</label>
+        <textarea id="in-fb-config" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"https://...-default-rtdb.asia-southeast1.firebasedatabase.app","projectId":"..."}'></textarea>
+      </div>
+    </div>
+
+    <!-- Hồ sơ sinh viên -->
+    <div class="panel">
+      <div class="panel-title"><span>2. Hồ sơ Sinh viên & Phòng đơn</span></div>
+      <div class="mode-switch">
+        <div class="mode-pill active" data-role="host">👑 Tạo sảnh mới (Chủ phòng / GM)</div>
+        <div class="mode-pill" data-role="guest">🚪 Vào sảnh có sẵn (Người chơi)</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Tên nhân vật</label>
+          <input id="in-name" placeholder="VD: Lâm Vãn" />
+        </div>
+        <div class="field">
+          <label>Giới tính</label>
+          <select id="in-gender">
+            <option value="Nữ">Nữ</option>
+            <option value="Nam">Nam</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Chuyên ngành</label>
+          <input id="in-major" placeholder="VD: Pháp y / Kiến trúc / Văn học" />
+        </div>
+        <div class="field">
+          <label>Vật cầm tay lúc 22:00 (Để trống = tay không)</label>
+          <input id="in-item" placeholder="VD: Cây thụt bồn cầu / Bình giữ nhiệt" />
+        </div>
+        <div class="field">
+          <label>ID Phòng đơn (P.101–P.520, để trống = random)</label>
+          <input id="in-room" placeholder="VD: 404" maxlength="5" />
+        </div>
+        <div class="field" id="wrap-lobby-code">
+          <label>Mã sảnh (6 ký tự — Khách nhập từ Chủ phòng)</label>
+          <input id="in-code" placeholder="VD: KTX842" style="text-transform:uppercase;font-family:var(--c-mono);" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Cấu hình AI dành riêng cho Chủ phòng -->
+    <div class="panel" id="host-ai-panel">
+      <div class="panel-title"><span>3. Quản trò AI (Chỉ lưu trên trình duyệt Chủ phòng)</span></div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Gemini API Key (Chủ phòng — không gửi lên Firebase)</label>
+          <input id="in-api-key" type="password" placeholder="AIzaSy..." />
+        </div>
+        <div class="field">
+          <label>Model Gemini</label>
+          <input id="in-model" value="gemini-2.5-flash" placeholder="gemini-2.5-flash / gemini-2.5-pro" />
+        </div>
+      </div>
+      <div class="field">
+        <label>System Prompt KTX Nữ (Tùy chọn: dán toàn bộ file ktx nữ (40) vào đây; nếu để trống sẽ chạy bộ luật Co-op rút gọn tích hợp sẵn)</label>
+        <textarea id="in-custom-prompt" placeholder="Dán nội dung system prompt ktx nữ (40) của bạn (tùy chọn)..."></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-enter" class="btn btn-red" style="flex:1;padding:12px;">⚡ Tạo sảnh & Bước vào Đêm 1</button>
+    </div>
+  </div>
+
+  <!-- ==================== MÀN HÌNH CHƠI GAME CO-OP ==================== -->
+  <div id="game-screen" class="coop-shell hidden">
+    <header class="coop-top">
+      <div class="top-left">
+        <span class="badge red" id="lbl-code" title="Bấm để sao chép Mã sảnh">MÃ: ------</span>
+        <span class="badge" id="lbl-me">P.---</span>
+        <span class="badge" id="lbl-clock">Ngày 1 • 22:00</span>
+      </div>
+      <div class="squad-pills" id="squad-pills"></div>
+      <div class="btn-row">
+        <button class="btn hidden" id="btn-start-night1" style="padding:5px 10px;font-size:11.5px;border-color:var(--c-red);color:#fff;background:var(--c-red);">🌙 Bắt đầu Đêm 1 (22:00)</button>
+        <button class="btn" id="btn-leave" style="padding:5px 10px;font-size:11.5px;">Thoát</button>
+      </div>
+    </header>
+
+    <!-- Tab chuyển đổi cho màn hình điện thoại -->
+    <div class="mobile-tabs">
+      <div class="m-tab active" data-mtab="story">📖 Diễn biến</div>
+      <div class="m-tab" data-mtab="phone">📱 Điện thoại</div>
+      <div class="m-tab" data-mtab="comms">📡 Liên lạc</div>
+    </div>
+
+    <div class="coop-body-grid">
+      <!-- CỘT TRÁI: TRUYỆN & CHỐT LƯỢT -->
+      <section class="col-story m-active" id="pane-story">
+        <div class="story-feed" id="story-feed"></div>
+
+        <div id="game-error" class="err-banner hidden" style="margin:0 14px 8px;"></div>
+
+        <div class="composer">
+          <textarea id="in-action" placeholder="Nhập hành động hoặc lời nói của bạn... (hoặc gõ /examine, /random Quyển A, /join P.XXX)"></textarea>
+          <input id="in-secret" class="secret-in" placeholder="🔒 Suy nghĩ / Hành động ngầm (CHỈ AI Quản trò đọc, đồng đội tuyệt đối không thấy)" />
+          <div class="comp-bar">
+            <span id="lock-status" style="font-size:11.5px;color:var(--c-muted);font-family:var(--c-mono);">Chưa chốt lượt</span>
+            <div class="btn-row">
+              <button class="btn btn-green" id="btn-lock">🔒 Chốt lượt</button>
+              <button class="btn btn-red hidden" id="btn-run-gm">⚡ Chạy lượt AI (GM)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CỘT PHẢI: ĐIỆN THOẠI DORM ENGINE + BỘ ĐÀM CO-OP -->
+      <aside class="col-right" id="pane-right">
+        <div class="right-subtabs">
+          <div class="r-tab active" data-rtab="phone">📱 App Sinh Tồn (dorm_engine)</div>
+          <div class="r-tab" data-rtab="comms">📡 Liên lạc / Mời ghép đội (Real-time)</div>
+        </div>
+
+        <div class="phone-scroll" id="sub-phone">
+          <div id="dorm-app-root"></div>
+        </div>
+
+        <div class="comms-wrap hidden" id="sub-comms">
+          <div class="comms-log" id="comms-log"></div>
+          <div class="panel" style="padding:10px;">
+            <div class="grid-2" style="gap:6px;">
+              <select id="comm-target" style="background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:6px;font-size:12px;">
+                <option value="ALL">📢 Kênh chung (Hành lang / Sảnh)</option>
+              </select>
+              <select id="comm-type" style="background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:6px;font-size:12px;">
+                <option value="call">📞 Gọi điện / Nhắn tin (/call)</option>
+                <option value="invite">✉️ Gửi Lời mời ghép đội (/invite)</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <input id="comm-text" placeholder="Nội dung gọi điện hoặc điều kiện ghép đội (VD: Quyển B - cần người giải đố)..." style="flex:1;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-border);border-radius:7px;padding:7px 9px;font-size:12.5px;" />
+              <button class="btn btn-red" id="btn-send-comm" style="padding:7px 12px;">Gửi</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Dùng đường dẫn tương đối nếu để chung repo GitHub với dorm_engine_v6_4.js -->
+  <script src="./dorm_engine_v6_4.js"></script>
+
+  <script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getDatabase, ref, set, get, update, push, onValue, off, remove
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyDGaP3FhVY_8t07kVd2JHsjp3DSDa6C7J0",
+      authDomain: "vhl520.firebaseapp.com",
+      databaseURL: "https://vhl520-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "vhl520",
+      storageBucket: "vhl520.firebasestorage.app",
+      messagingSenderId: "697986552500",
+      appId: "1:697986552500:web:792b0bee1395d3a0853de1",
+      measurementId: "G-SDH5H3345S"
+    };
+
+    const BUILTIN_COOP_RULES = `
+Bạn là Quản trò (Game Master) của thế giới Vô Hạn Lưu Kinh Dị Quy Tắc "Trò Chơi Sinh Tồn Trong Phòng Ngủ" phiên bản Co-op 2-4 người chơi thật (mỗi người 1 phòng đơn trong Khu 100 Phòng P.101-P.520).
+- Ngôn ngữ: 100% tiếng Việt văn học sắc lạnh, rùng rợn kiểu Vô Hạn Lưu (Cấm dùng từ hệ thống như RNG, NPC, User, HP trong văn xuôi; cấm kiểm soát lời nói/suy nghĩ/hành động của người chơi).
+- Đêm 1 (22:00-00:00): Cúp điện toàn trường lúc 22:00, giọng trẻ con 'Giáo viên' phát thanh mỗi 30 phút. Mỗi người chơi bắt đầu ở sân/sảnh/hành lang tầng dưới, phải tự tìm về đúng Phòng đơn chỉ định trước 00:00 và chốt cửa không cho bất kỳ ai vào. Vật cầm tay lúc 22:00 (trừ điện thoại) biến dị thành Dị năng thiên phú.
+- World 0 (00:00): Sinh Hoạt Đầu Khóa: Bách Đoàn Đại Chiến (cá nhân). Vượt qua sẽ thành Sinh viên chính thức (mode: "official"), mở BXH 100 phòng ẩn danh theo ID phòng, Giờ An Toàn (20:00-08:00 & Chủ Nhật), và đề thi nhóm 08:00 (1-4 người).
+- Quy tắc mù thông tin & Co-op:
+  + Tuyệt đối KHÔNG lộ nội dung "Suy nghĩ / Hành động ngầm" của người này trong đoạn truyện chung (public_prose).
+  + Mọi manh mối riêng, cảm giác cá nhân, cuộc chạm trán khi đi lẻ, hoặc vai diễn bí mật khi tách vai phải đặt riêng trong private_pov[roomId].
+- Tính điểm cá nhân sau mỗi bài thi: Nền cá nhân từ 100 trừ lỗi thực tế (<60 trượt). Điểm tích lũy tối đa 20/bài = Nền (2/4/6) + Hiệu quả (1-5) + Xếp loại (0/1/MVP +7) + Thành tựu (0/1/2).
+`;
+
+    const JSON_OUTPUT_CONTRACT = `
+=== BẮT BUỘC ĐẦU RA JSON THUẦN (KHÔNG VIẾT MARKDOWN NGOÀI JSON) ===
+Bạn PHẢI trả về đúng 1 JSON object hợp lệ với cấu trúc sau:
+{
+  "mode": "pre | temp | official",
+  "inExam": true hoặc false,
+  "clock": { "time": "Ngày D • Thứ ... • HH:MM", "countdown": "HH:MM:SS hoặc chuỗi rỗng", "status": "Trạng thái ngắn" },
+  "public_prose": "3-5 đoạn văn tiếng Việt mô tả diễn biến chung Time T+1 (tuyệt đối không lộ hành động ngầm hay góc nhìn mật của riêng ai).",
+  "private_pov": {
+    "P404": "Đoạn văn riêng CHỈ phòng P.404 thấy (cảnh báo riêng, chi tiết quan sát được, vai diễn mật, hoặc chuỗi rỗng nếu không có)."
+  },
+  "players_patch": {
+    "P404": {
+      "hp": 100,
+      "maxHp": 100,
+      "hpNote": "Tình trạng tinh thần",
+      "limbs": "Lành lặn 100%",
+      "inRoom": false,
+      "alive": true,
+      "credits": 0,
+      "points": 0,
+      "bxhScore": 0,
+      "rank": "Chưa định hạng hoặc #X",
+      "role": "Phòng đơn hoặc vai diễn trong phó bản",
+      "talent": { "item": "Tên vật phẩm hoặc Không có", "desc": "Mô tả dị năng" },
+      "items": ["Vật phẩm 1"],
+      "buffs": [],
+      "dormMap": { "door": "g", "beds": "g", "desk": "g", "bath": "g", "balcony": "g", "note": "Ghi chú" }
+    }
+  },
+  "exam": {
+    "title": "Tên giai đoạn hoặc học phần hiện tại",
+    "missions": [{ "text": "Nhiệm vụ đang mở", "status": "active | done | fail" }],
+    "choices": [],
+    "evaluation": null
+  },
+  "topNpcRooms": [
+    "P.501|1|20|1 Học phần|Top 1 BXH (Ẩn danh)"
+  ],
+  "aliveTotal": 100,
+  "deadRooms": [],
+  "notify": null hoặc { "tag": "QUY TẮC / NHIỆM VỤ MỚI / TỔNG KẾT", "title": "Tiêu đề", "lines": ["Dòng 1"] }
+}
+Chỉ cần điền các khóa có thay đổi trong players_patch (nhưng luôn giữ đủ public_prose, clock, mode).
+`;
+
+    // === HELPER: ĐỔI "P.404" -> "P404" ĐỂ LƯU FIREBASE KHÔNG LỖI DẤU CHẤM ===
+    function toDbKey(str) {
+      const m = String(str || "").match(/([1-5](?:0[1-9]|1\d|20))/);
+      if (m) return "P" + m[1];
+      return String(str || "").replace(/[.#$\/\[\]]/g, "");
+    }
+
+    function sanitizeKeyMap(obj) {
+      const out = {};
+      if (!obj || typeof obj !== "object") return out;
+      Object.entries(obj).forEach(([k, v]) => {
+        const safeK = toDbKey(k);
+        if (safeK && v !== undefined) out[safeK] = v;
+      });
+      return out;
+    }
+
+    // === STATE ===
+    let db = null;
+    let roleMode = "host";
+    let session = {
+      code: "", roomId: "", roomKey: "", isHost: false,
+      apiKey: "", model: "gemini-2.5-flash", customPrompt: ""
+    };
+    let lobbyData = null;
+    let unsubLobby = null;
+    let activePhoneTab = "dorm";
+    let isCallingAI = false;
+
+    const $ = (id) => document.getElementById(id);
+
+    // === INIT LOCAL STORAGE ===
+    function loadSavedInputs() {
+      const savedFb = localStorage.getItem("ktx_fb_config");
+      if (DEFAULT_FIREBASE_CONFIG) {
+        $("in-fb-config").value = JSON.stringify(DEFAULT_FIREBASE_CONFIG);
+        $("fb-status").textContent = "Đã cấu hình sẵn";
+      } else if (savedFb) {
+        $("in-fb-config").value = savedFb;
+      }
+      $("in-api-key").value = localStorage.getItem("ktx_gemini_key") || "";
+      $("in-model").value = localStorage.getItem("ktx_gemini_model") || "gemini-2.5-flash";
+      $("in-custom-prompt").value = localStorage.getItem("ktx_custom_prompt") || "";
+      $("in-name").value = localStorage.getItem("ktx_name") || "";
+      $("in-major").value = localStorage.getItem("ktx_major") || "";
+    }
+    loadSavedInputs();
+
+    document.querySelectorAll(".mode-pill").forEach((el) => {
+      el.addEventListener("click", () => {
+        document.querySelectorAll(".mode-pill").forEach((x) => x.classList.remove("active"));
+        el.classList.add("active");
+        roleMode = el.dataset.role;
+        $("host-ai-panel").classList.toggle("hidden", roleMode !== "host");
+        $("wrap-lobby-code").classList.toggle("hidden", roleMode === "host");
+        $("btn-enter").textContent = roleMode === "host"
+          ? "⚡ Tạo sảnh & Bước vào Đêm 1"
+          : "🚪 Tham gia sảnh Co-op";
+      });
+    });
+    $("wrap-lobby-code").classList.add("hidden");
+
+    function showLobbyErr(msg) {
+      const el = $("lobby-error");
+      el.textContent = msg;
+      el.classList.toggle("hidden", !msg);
+    }
+    function showGameErr(msg) {
+      const el = $("game-error");
+      el.textContent = msg;
+      el.classList.toggle("hidden", !msg);
+    }
+
+    function connectFirebase() {
+      let cfg = DEFAULT_FIREBASE_CONFIG;
+      const txt = $("in-fb-config").value.trim();
+      if (txt) {
+        try { cfg = JSON.parse(txt); }
+        catch { throw new Error("firebaseConfig không đúng định dạng JSON hợp lệ."); }
+        localStorage.setItem("ktx_fb_config", txt);
+      }
+      if (!cfg || !cfg.databaseURL) {
+        throw new Error("Thiếu firebaseConfig hoặc thiếu trường databaseURL (Realtime Database).");
+      }
+      const app = getApps().length ? getApps()[0] : initializeApp(cfg);
+      db = getDatabase(app);
+      $("fb-status").textContent = "Đã kết nối ✓";
+      $("fb-status").style.color = "#8af0b8";
+      return db;
+    }
+
+    function genCode() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let out = "KTX";
+      for (let i = 0; i < 3; i++) out += chars[Math.floor(Math.random() * chars.length)];
+      return out;
+    }
+
+    function normalizeRoomId(input, takenSet) {
+      const m = String(input || "").match(/(?:^|[^\d])([1-5](?:0[1-9]|1\d|20))(?:[^\d]|$)/);
+      if (m && !takenSet.has("P." + m[1])) return "P." + m[1];
+      for (let tries = 0; tries < 200; tries++) {
+        const f = Math.floor(Math.random() * 5) + 1;
+        const r = Math.floor(Math.random() * 20) + 1;
+        const id = "P." + String(f * 100 + r);
+        if (!takenSet.has(id)) return id;
+      }
+      return "P.404";
+    }
+
+    function buildInitialPlayer(roomId, name, gender, major, heldItem) {
+      return {
+        roomId,
+        roomKey: toDbKey(roomId),
+        name, gender, major: major || "Sinh viên đại học",
+        heldItem: heldItem || "Không có (Tay không)",
+        school: "Khu 100 Phòng Đơn",
+        rank: "Chưa định hạng",
+        credits: 0, points: 0, bxhScore: 0,
+        hp: 100, maxHp: 100,
+        hpNote: "Ổn định, chưa phát hiện ô nhiễm tinh thần.",
+        limbs: "Lành lặn 100%",
+        stats: [10, 10, 10, 10],
+        talent: {
+          item: heldItem || "Không có",
+          desc: heldItem ? "Đang chờ thức tỉnh lúc 22:00..." : "Tay không lúc 22:00 — chưa sở hữu dị năng thiên phú."
+        },
+        items: heldItem ? [heldItem] : [],
+        buffs: [],
+        dormMap: { door: "g", beds: "g", desk: "g", bath: "g", balcony: "g", note: "Chưa vào phòng chỉ định." },
+        inRoom: false, alive: true, role: "Phòng đơn",
+        joinedAt: Date.now()
+      };
+    }
+
+    // === ENTER / CREATE LOBBY ===
+    $("btn-enter").addEventListener("click", async () => {
+      showLobbyErr("");
+      try {
+        connectFirebase();
+        const name = $("in-name").value.trim();
+        if (!name) throw new Error("Vui lòng nhập Tên nhân vật.");
+        const gender = $("in-gender").value;
+        const major = $("in-major").value.trim() || "Sinh viên";
+        const heldItem = $("in-item").value.trim();
+        localStorage.setItem("ktx_name", name);
+        localStorage.setItem("ktx_major", major);
+
+        let code = "";
+        let taken = new Set();
+
+        if (roleMode === "host") {
+          const apiKey = $("in-api-key").value.trim();
+          if (!apiKey) throw new Error("Chủ phòng cần nhập Gemini API Key.");
+          const model = $("in-model").value.trim() || "gemini-2.5-flash";
+          const customPrompt = $("in-custom-prompt").value.trim();
+          localStorage.setItem("ktx_gemini_key", apiKey);
+          localStorage.setItem("ktx_gemini_model", model);
+          localStorage.setItem("ktx_custom_prompt", customPrompt);
+
+          code = genCode();
+          const roomId = normalizeRoomId($("in-room").value, taken);
+          const roomKey = toDbKey(roomId);
+          const player = buildInitialPlayer(roomId, name, gender, major, heldItem);
+
+          const initialLobby = {
+            meta: {
+              code, hostRoom: roomId, createdAt: Date.now(),
+              mode: "pre", inExam: false, lastTurn: 0,
+              clock: { time: "Ngày 1 • Thứ Hai • 21:59", countdown: "02:00:00", status: "Đang chờ đủ người trong sảnh" },
+              aliveTotal: 100, deadRooms: [], topNpcRooms: [],
+              exam: { title: "Đêm 1: Giờ giới nghiêm (22:00–00:00)", missions: [], choices: [], evaluation: null, history: [] },
+              shop: [
+                { name: "Nước sạch & Đồ ăn khô KTX (1 ngày)", desc: "Dự trữ sinh tồn cơ bản", price: 2, stock: "Không giới hạn" },
+                { name: "Bộ sơ cứu cầm máu & khử trùng", desc: "Cầm máu, không tái tạo chi", price: 5, stock: "Tồn kho: 3" },
+                { name: "Thuốc phục hồi tinh thần", desc: "Hồi +15 Khỏe mạnh & xóa ảo giác nhẹ", price: 12, stock: "Tồn kho: 1" },
+                { name: "Năng lực [Đánh giá]", desc: "Quét cấp độ khó ẩn của đề thi (10 lần/ngày)", price: 25, stock: "Tồn kho: 1" },
+                { name: "Huyết Thanh Tái Tạo Tứ Chi Hoàn Chỉnh", desc: "Mọc lại chi bị mất (hôn mê 24h)", price: 150, stock: "Tồn kho: 1" }
+              ]
+            },
+            players: { [roomKey]: player },
+            turns: {},
+            pendingActions: {},
+            comms: {}
+          };
+
+          await set(ref(db, `lobbies/${code}`), initialLobby);
+          session = { code, roomId, roomKey, isHost: true, apiKey, model, customPrompt };
+        } else {
+          code = $("in-code").value.trim().toUpperCase();
+          if (!code) throw new Error("Vui lòng nhập Mã sảnh từ Chủ phòng.");
+          const snap = await get(ref(db, `lobbies/${code}`));
+          if (!snap.exists()) throw new Error(`Không tìm thấy sảnh "${code}". Kiểm tra lại mã hoặc Firebase config.`);
+          const data = snap.val();
+          const existingPlayers = data.players || {};
+          const pList = Object.values(existingPlayers);
+          if (pList.length >= 4) throw new Error("Sảnh đã đủ tối đa 4 người chơi thật.");
+          pList.forEach((p) => taken.add(p.roomId));
+
+          const roomId = normalizeRoomId($("in-room").value, taken);
+          const roomKey = toDbKey(roomId);
+          const player = buildInitialPlayer(roomId, name, gender, major, heldItem);
+          await set(ref(db, `lobbies/${code}/players/${roomKey}`), player);
+          session = { code, roomId, roomKey, isHost: false, apiKey: "", model: "", customPrompt: "" };
+        }
+
+        enterGameScreen();
+      } catch (err) {
+        showLobbyErr("⚠️ " + (err.message || err));
+      }
+    });
+
+    function enterGameScreen() {
+      $("lobby-screen").classList.add("hidden");
+      $("game-screen").classList.remove("hidden");
+      $("lbl-code").textContent = `MÃ: ${session.code}`;
+      $("lbl-me").textContent = `${session.roomId} ${session.isHost ? "👑" : ""}`;
+      $("btn-run-gm").classList.toggle("hidden", !session.isHost);
+
+      const lobbyRef = ref(db, `lobbies/${session.code}`);
+      unsubLobby = onValue(lobbyRef, (snap) => {
+        if (!snap.exists()) return;
+        lobbyData = snap.val();
+        renderAll();
+      });
+    }
+
+    $("lbl-code").addEventListener("click", () => {
+      navigator.clipboard?.writeText(session.code);
+      $("lbl-code").textContent = `ĐÃ CHÉP: ${session.code}`;
+      setTimeout(() => { $("lbl-code").textContent = `MÃ: ${session.code}`; }, 1500);
+    });
+
+    $("btn-leave").addEventListener("click", () => {
+      if (unsubLobby && db) off(ref(db, `lobbies/${session.code}`));
+      location.reload();
+    });
+
+    // === RENDER ALL UI ===
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+
+    function renderAll() {
+      if (!lobbyData) return;
+      const meta = lobbyData.meta || {};
+      const players = lobbyData.players || {};
+      const myP = players[session.roomKey];
+      if (!myP) return;
+
+      const curTurn = Number(meta.lastTurn) || 0;
+      const nextTurn = curTurn + 1;
+      const pending = (lobbyData.pendingActions && lobbyData.pendingActions[nextTurn]) || {};
+
+      $("lbl-clock").textContent = meta.clock?.time || "Ngày 1 • 22:00";
+      $("btn-start-night1").classList.toggle("hidden", !(session.isHost && curTurn === 0));
+
+      const alivePlayers = Object.values(players).filter((p) => p.alive !== false);
+      const lockedCount = alivePlayers.filter((p) => Boolean(pending[p.roomKey || toDbKey(p.roomId)])).length;
+      $("squad-pills").innerHTML = Object.values(players).map((p) => {
+        const rk = p.roomKey || toDbKey(p.roomId);
+        const isDead = p.alive === false;
+        const isReady = Boolean(pending[rk]);
+        const cls = isDead ? "dead" : (isReady ? "ready" : "");
+        const tag = isDead ? "💀" : (isReady ? "✓" : "⏳");
+        return `<span class="p-pill ${cls}">${esc(p.roomId)} ${tag}</span>`;
+      }).join("");
+
+      const iLocked = Boolean(pending[session.roomKey]);
+      $("lock-status").textContent = curTurn === 0
+        ? `Trong sảnh: ${Object.keys(players).length}/4 người — chờ Chủ phòng bấm Bắt đầu Đêm 1`
+        : (iLocked ? `Bạn đã chốt lượt (${lockedCount}/${alivePlayers.length} sẵn sàng)` : `Lượt #${nextTurn} — Chờ bạn nhập hành động (${lockedCount}/${alivePlayers.length})`);
+
+      $("btn-lock").disabled = curTurn === 0 || myP.alive === false;
+      $("btn-lock").textContent = iLocked ? "✏️ Sửa hành động đã chốt" : "🔒 Chốt lượt";
+      $("btn-run-gm").disabled = curTurn === 0 || isCallingAI;
+      $("btn-run-gm").textContent = isCallingAI ? "⏳ Quản trò đang xử lý..." : `⚡ Chạy lượt AI (${lockedCount}/${alivePlayers.length})`;
+
+      const turnsObj = lobbyData.turns || {};
+      const turnKeys = Object.keys(turnsObj).map(Number).sort((a, b) => a - b);
+      const feed = $("story-feed");
+      const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+
+      if (!turnKeys.length) {
+        feed.innerHTML = `<div class="turn-card">
+          <div class="turn-meta"><span>SẢNH CHỜ CO-OP • MÃ ${esc(session.code)}</span><span>${Object.keys(players).length}/4 phòng</span></div>
+          <div class="prose">Gửi mã <strong>${esc(session.code)}</strong> cho 1–3 người bạn để họ vào chung tòa KTX (mỗi người một phòng đơn).\n\nKhi đủ người, Chủ phòng bấm nút <strong>🌙 Bắt đầu Đêm 1 (22:00)</strong> ở góc trên bên phải để đồng loạt cúp điện toàn trường.</div>
+        </div>`;
+      } else {
+        feed.innerHTML = turnKeys.map((k) => {
+          const t = turnsObj[k];
+          const myPriv = t.privatePov && t.privatePov[session.roomKey];
+          const actList = t.publicActions
+            ? Object.entries(t.publicActions).map(([rKey, act]) => {
+                const label = (players[rKey] && players[rKey].roomId) || rKey;
+                return `<strong>${esc(label)}:</strong> ${esc(act)}`;
+              }).join(" &nbsp;|&nbsp; ")
+            : "";
+          return `<div class="turn-card">
+            <div class="turn-meta"><span>LƯỢT #${k}</span><span>${esc(t.clockTime || "")}</span></div>
+            ${actList ? `<div class="actions-recap">${actList}</div>` : ""}
+            <div class="prose">${esc(t.publicProse || "")}</div>
+            ${myPriv ? `<div class="private-box"><div class="private-label">👁️ Góc nhìn mật — Chỉ ${esc(session.roomId)} thấy</div><div class="prose" style="font-size:13.2px;">${esc(myPriv)}</div></div>` : ""}
+          </div>`;
+        }).join("");
+        if (atBottom) feed.scrollTop = feed.scrollHeight;
+      }
+
+      const targetSel = $("comm-target");
+      const prevTarget = targetSel.value;
+      targetSel.innerHTML = `<option value="ALL">📢 Kênh chung (Hành lang / Sảnh)</option>` +
+        Object.values(players)
+          .filter((p) => p.roomId !== session.roomId)
+          .map((p) => `<option value="${esc(p.roomId)}">🚪 ${esc(p.roomId)} (${p.alive === false ? "Đã loại" : "Đang kết nối"})</option>`)
+          .join("");
+      if ([...targetSel.options].some((o) => o.value === prevTarget)) targetSel.value = prevTarget;
+
+      const commsArr = Object.values(lobbyData.comms || {})
+        .filter((c) => c.to === "ALL" || c.to === session.roomId || c.from === session.roomId)
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+      $("comms-log").innerHTML = commsArr.length
+        ? commsArr.map((c) => {
+            const cls = c.type === "invite" ? "invite" : (c.to !== "ALL" ? "direct" : "");
+            const tag = c.type === "invite" ? "✉️ LỜI MỜI GHÉP ĐỘI" : (c.to === "ALL" ? "📢 KÊNH CHUNG" : `📞 RIÊNG → ${c.to}`);
+            return `<div class="comm-item ${cls}">
+              <div class="comm-head"><span>${esc(c.from)} • ${esc(tag)}</span><span>${new Date(c.ts || Date.now()).toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" })}</span></div>
+              <div>${esc(c.text)}</div>
+            </div>`;
+          }).join("")
+        : `<div style="color:var(--c-muted);font-size:12px;font-style:italic;">Chưa có tín hiệu liên lạc giữa các phòng. Bạn có thể gọi riêng (/call) hoặc gửi lời mời ghép đội (/invite) ngay tại đây mà không tốn lượt AI.</div>`;
+
+      renderDormPhone(meta, players, myP, commsArr);
+    }
+
+    function renderDormPhone(meta, players, myP, commsArr) {
+      if (typeof window.initDormApp !== "function") return;
+
+      const curActiveBtn = document.querySelector("#dorm-app-root .d-nav-btn.active");
+      if (curActiveBtn && curActiveBtn.dataset.tab) activePhoneTab = curActiveBtn.dataset.tab;
+
+      const inExam = Boolean(meta.inExam);
+      const squadList = inExam
+        ? [myP, ...Object.values(players).filter((p) => p.roomId !== myP.roomId)]
+        : [myP];
+
+      const teamForPhone = squadList.map((p) => ({
+        name: p.roomId === myP.roomId ? `${p.name} (${p.roomId})` : `${p.roomId}`,
+        bed: "Đơn",
+        inRoom: Boolean(p.inRoom),
+        hp: Number(p.hp ?? 100),
+        maxHp: Number(p.maxHp ?? 100),
+        role: p.roomId === myP.roomId ? (p.role || p.rank || "Phòng đơn") : (p.role || "??? (Chưa xác nhận)"),
+        alive: p.alive !== false
+      }));
+
+      const realHubEntries = Object.values(players).map((p) => {
+        const aliveNum = p.alive === false ? 0 : 1;
+        const sc = Number(p.bxhScore ?? p.points ?? 0);
+        const cr = Number(p.credits ?? 0);
+        const note = p.roomId === myP.roomId ? "Phòng đơn của bạn" : "Thí sinh cùng sảnh Co-op (Ẩn danh tên thật)";
+        return `${p.roomId}|${aliveNum}|${sc}|${cr} Học phần|${note}`;
+      });
+      const npcHubEntries = Array.isArray(meta.topNpcRooms) ? meta.topNpcRooms : [];
+      const allDead = new Set(Array.isArray(meta.deadRooms) ? meta.deadRooms : []);
+      Object.values(players).forEach((p) => { if (p.alive === false) allDead.add(p.roomId.replace("P.", "")); });
+
+      const pendingInvites = commsArr
+        .filter((c) => c.type === "invite" && c.to === myP.roomId)
+        .slice(-3)
+        .map((c) => {
+          const sender = players[toDbKey(c.from)];
+          return {
+            from: c.from,
+            rank: (sender && sender.rank) || "Chưa rõ",
+            course: "Ghép đội Co-op",
+            slots: `${Object.keys(players).length}/4`,
+            note: c.text
+          };
+        });
+
+      const lastTurnObj = meta.lastTurn && lobbyData.turns ? lobbyData.turns[meta.lastTurn] : null;
+      const alertTxt = lastTurnObj?.notify?.title
+        ? `${lastTurnObj.notify.tag || "THÔNG BÁO"}: ${lastTurnObj.notify.title}`
+        : "";
+
+      const dormState = {
+        view: "full",
+        activeTab: activePhoneTab,
+        mode: meta.mode || "pre",
+        clock: meta.clock || { time: "Ngày 1 • 22:00", countdown: "02:00:00", status: "" },
+        alert: alertTxt,
+        user: {
+          name: myP.name,
+          dorm: myP.roomId,
+          school: myP.school || "Khu 100 Phòng Đơn",
+          rank: myP.rank || "Chưa định hạng",
+          credits: Number(myP.credits || 0),
+          points: Number(myP.points || 0),
+          hp: Number(myP.hp ?? 100),
+          maxHp: Number(myP.maxHp ?? 100),
+          hpNote: myP.hpNote || "Ổn định",
+          limbs: myP.limbs || "Lành lặn 100%",
+          stats: Array.isArray(myP.stats) ? myP.stats : [10, 10, 10, 10],
+          talent: myP.talent || { item: "Không có", desc: "" },
+          items: Array.isArray(myP.items) ? myP.items : [],
+          buffs: Array.isArray(myP.buffs) ? myP.buffs : []
+        },
+        dormMap: myP.dormMap || { door: "g", beds: "g", desk: "g", bath: "g", balcony: "g", note: "Bình thường" },
+        team: teamForPhone,
+        exam: meta.exam || { title: "Đêm 1", missions: [], choices: [], evaluation: null, history: [] },
+        shop: Array.isArray(meta.shop) ? meta.shop : [],
+        invites: pendingInvites,
+        aliveTotal: Number(meta.aliveTotal ?? 100),
+        deadRooms: [...allDead],
+        hubRooms: [...npcHubEntries, ...realHubEntries]
+      };
+
+      window.DORM_STATE = dormState;
+      window.initDormApp(dormState);
+    }
+
+    $("dorm-app-root").addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-cmd]");
+      if (!btn) return;
+      const cmd = btn.getAttribute("data-cmd");
+      if (cmd) {
+        $("in-action").value = cmd;
+        $("in-action").focus();
+      }
+    });
+
+    // === PLAYER LOCK-IN ACTION ===
+    $("btn-lock").addEventListener("click", async () => {
+      showGameErr("");
+      if (!lobbyData) return;
+      const text = $("in-action").value.trim();
+      const secretNote = $("in-secret").value.trim();
+      if (!text && !secretNote) {
+        showGameErr("Nhập hành động (hoặc '...' để giữ im lặng) trước khi chốt lượt.");
+        return;
+      }
+      const nextTurn = (Number(lobbyData.meta?.lastTurn) || 0) + 1;
+      await set(ref(db, `lobbies/${session.code}/pendingActions/${nextTurn}/${session.roomKey}`), {
+        text: text || "(Giữ im lặng)",
+        secretNote,
+        lockedAt: Date.now()
+      });
+    });
+
+    // === REAL-TIME COMMS (NO AI COST) ===
+    $("btn-send-comm").addEventListener("click", async () => {
+      const text = $("comm-text").value.trim();
+      if (!text || !db) return;
+      await push(ref(db, `lobbies/${session.code}/comms`), {
+        from: session.roomId,
+        to: $("comm-target").value,
+        type: $("comm-type").value,
+        text,
+        ts: Date.now()
+      });
+      $("comm-text").value = "";
+    });
+
+    // === HOST CALLS GEMINI API ===
+    async function runGMTurn(isStartNight1 = false) {
+      if (!session.isHost || isCallingAI || !lobbyData) return;
+      showGameErr("");
+      isCallingAI = true;
+      renderAll();
+
+      try {
+        const meta = lobbyData.meta || {};
+        const players = lobbyData.players || {};
+        const curTurn = Number(meta.lastTurn) || 0;
+        const nextTurn = curTurn + 1;
+        const pending = (lobbyData.pendingActions && lobbyData.pendingActions[nextTurn]) || {};
+
+        const turnsObj = lobbyData.turns || {};
+        const recentKeys = Object.keys(turnsObj).map(Number).sort((a, b) => a - b).slice(-8);
+        const historySummary = recentKeys.map((k) => {
+          const t = turnsObj[k];
+          return `[Lượt ${k} | ${t.clockTime || ""}]\nHành động: ${JSON.stringify(t.publicActions || {})}\nDiễn biến chung: ${t.publicProse}\nGóc nhìn mật: ${JSON.stringify(t.privatePov || {})}`;
+        }).join("\n---\n");
+
+        const playersSnapshot = Object.values(players).map((p) => ({
+          roomId: p.roomId, roomKey: p.roomKey || toDbKey(p.roomId),
+          name: p.name, gender: p.gender, major: p.major,
+          heldItem22h: p.heldItem, alive: p.alive, inRoom: p.inRoom,
+          hp: p.hp, credits: p.credits, points: p.points, bxhScore: p.bxhScore,
+          role: p.role, talent: p.talent, items: p.items
+        }));
+
+        const actionsBlock = isStartNight1
+          ? "KHỞI TẠO ĐÊM 1 (22:00): Cúp điện toàn trường lúc 22:00, giọng 'Giáo viên' vang lên, thức tỉnh dị năng cho ai đang cầm đồ lúc 22:00, giao đúng Room ID chỉ định của từng người chơi trên điện thoại và thả họ ở sân/sảnh tầng 1 đầy hỗn loạn."
+          : Object.values(players)
+              .filter((p) => p.alive !== false)
+              .map((p) => {
+                const rk = p.roomKey || toDbKey(p.roomId);
+                const act = pending[rk];
+                return act
+                  ? `- ${p.roomId} (key: ${rk}, ${p.name}): Hành động công khai: "${act.text}" | Hành động/suy nghĩ ngầm (CHỈ phản hồi vào private_pov["${rk}"]): "${act.secretNote || "Không có"}"`
+                  : `- ${p.roomId} (key: ${rk}, ${p.name}): (Không kịp chốt lượt — chần chừ/đứng im tại chỗ)`;
+              }).join("\n");
+
+        const systemText = (session.customPrompt || BUILTIN_COOP_RULES) + "\n\n" + JSON_OUTPUT_CONTRACT;
+        const userMessage = `TRẠNG THÁI HIỆN TẠI (Lượt ${curTurn} -> ${nextTurn}):
+Mode: ${meta.mode} | Clock: ${JSON.stringify(meta.clock)} | AliveTotal: ${meta.aliveTotal} | DeadRooms: ${JSON.stringify(meta.deadRooms || [])}
+Exam hiện tại: ${JSON.stringify(meta.exam || {})}
+DANH SÁCH NGƯỜI CHƠI THẬT (Co-op):
+${JSON.stringify(playersSnapshot, null, 2)}
+
+LỊCH SỬ GẦN ĐÂY:
+${historySummary || "(Mới bắt đầu)"}
+
+ĐẦU VÀO LƯỢT #${nextTurn}:
+${actionsBlock}`;
+
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(session.model)}:generateContent?key=${encodeURIComponent(session.apiKey)}`;
+        const resp = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemText }] },
+            contents: [{ role: "user", parts: [{ text: userMessage }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.9
+            }
+          })
+        });
+
+        const rawJson = await resp.json();
+        if (!resp.ok) throw new Error(rawJson?.error?.message || `HTTP ${resp.status}`);
+
+        const rawText = rawJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const cleaned = rawText.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+        const ai = JSON.parse(cleaned);
+
+        const updates = {};
+        const publicActions = {};
+        Object.keys(pending).forEach((rKey) => { publicActions[rKey] = pending[rKey].text; });
+
+        updates[`lobbies/${session.code}/turns/${nextTurn}`] = {
+          turn: nextTurn,
+          clockTime: ai.clock?.time || meta.clock?.time || "",
+          publicActions: isStartNight1 ? { SYSTEM: "22:00 — Cúp điện toàn trường" } : publicActions,
+          publicProse: ai.public_prose || "(Không có nội dung phản hồi)",
+          privatePov: sanitizeKeyMap(ai.private_pov),
+          notify: ai.notify || null,
+          ts: Date.now()
+        };
+
+        updates[`lobbies/${session.code}/meta/lastTurn`] = nextTurn;
+        if (ai.mode) updates[`lobbies/${session.code}/meta/mode`] = ai.mode;
+        if (typeof ai.inExam === "boolean") updates[`lobbies/${session.code}/meta/inExam`] = ai.inExam;
+        if (ai.clock) updates[`lobbies/${session.code}/meta/clock`] = ai.clock;
+        if (ai.exam) updates[`lobbies/${session.code}/meta/exam`] = ai.exam;
+        if (ai.aliveTotal != null) updates[`lobbies/${session.code}/meta/aliveTotal`] = ai.aliveTotal;
+        if (Array.isArray(ai.deadRooms)) {
+          const mergedDead = [...new Set([...(meta.deadRooms || []), ...ai.deadRooms])];
+          updates[`lobbies/${session.code}/meta/deadRooms`] = mergedDead;
+        }
+        if (Array.isArray(ai.topNpcRooms) && ai.topNpcRooms.length) {
+          updates[`lobbies/${session.code}/meta/topNpcRooms`] = ai.topNpcRooms;
+        }
+
+        if (ai.players_patch && typeof ai.players_patch === "object") {
+          Object.entries(ai.players_patch).forEach(([rid, patch]) => {
+            const rKey = toDbKey(rid);
+            if (!players[rKey] || !patch || typeof patch !== "object") return;
+            Object.entries(patch).forEach(([field, val]) => {
+              if (val !== undefined && !/[.#$\/\[\]]/.test(field)) {
+                updates[`lobbies/${session.code}/players/${rKey}/${field}`] = val;
+              }
+            });
+          });
+        }
+
+        await update(ref(db), updates);
+        await remove(ref(db, `lobbies/${session.code}/pendingActions/${nextTurn}`));
+        $("in-action").value = "";
+        $("in-secret").value = "";
+      } catch (err) {
+        showGameErr("⚠️ Lỗi gọi Quản trò AI: " + (err.message || err));
+      } finally {
+        isCallingAI = false;
+        renderAll();
+      }
+    }
+
+    $("btn-start-night1").addEventListener("click", () => runGMTurn(true));
+    $("btn-run-gm").addEventListener("click", () => runGMTurn(false));
+
+    // === TABS (DESKTOP & MOBILE) ===
+    document.querySelectorAll(".r-tab").forEach((t) => {
+      t.addEventListener("click", () => {
+        document.querySelectorAll(".r-tab").forEach((x) => x.classList.remove("active"));
+        t.classList.add("active");
+        const target = t.dataset.rtab;
+        $("sub-phone").classList.toggle("hidden", target !== "phone");
+        $("sub-comms").classList.toggle("hidden", target !== "comms");
+      });
+    });
+
+    document.querySelectorAll(".m-tab").forEach((t) => {
+      t.addEventListener("click", () => {
+        document.querySelectorAll(".m-tab").forEach((x) => x.classList.remove("active"));
+        t.classList.add("active");
+        const m = t.dataset.mtab;
+        $("pane-story").classList.toggle("m-active", m === "story");
+        $("pane-right").classList.toggle("m-active", m !== "story");
+        if (m === "phone") {
+          $("sub-phone").classList.remove("hidden");
+          $("sub-comms").classList.add("hidden");
+        } else if (m === "comms") {
+          $("sub-phone").classList.add("hidden");
+          $("sub-comms").classList.remove("hidden");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
