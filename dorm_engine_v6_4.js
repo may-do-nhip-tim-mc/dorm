@@ -275,7 +275,7 @@
       rm.sub = rm.creditsNum + " H.phần";
     });
 
-    // 3) Khóa trần phòng tự sinh dưới nhóm Top 1–3 mà AI khai báo (tránh filler cướp hạng Top 2, Top 3)
+        // 3) Khóa trần phòng tự sinh dưới nhóm Top 1–3 mà AI khai báo (tránh filler cướp hạng Top)
     const explicitTopCandidates = explicitAliveNPCs
       .map(function (id) { return map[id]; })
       .filter(function (rm) { return (rm.score || 0) >= userScore && (rm.score || 0) > 0; })
@@ -290,22 +290,72 @@
       fillerMaxScore = ceilingScore;
     }
 
-    // 4) Phân phối điểm tự nhiên cho các phòng tự sinh (cho phép TRÙNG ĐIỂM)
-    const aliveFillers = fillerIds.filter(function (id) { return map[id].alive; });
-    aliveFillers.forEach(function (id) {
+    // 4) Phân phối điểm cho phòng tự sinh — ĐỒNG BỘ CHẶT VỚI user.rank DO AI CHỐT
+    const totalAliveNow = order.filter(function (id) { return map[id].alive; }).length;
+    function extractTargetRank(str) {
+      const s = String(str || "");
+      if (!s || /chưa/i.test(s)) return null;
+      const m = s.match(/#\s*(\d+)/) || s.match(/hạng\s*(\d+)/i) || s.match(/^\s*(\d+)\b/);
+      return m ? parseInt(m[1], 10) : null;
+    }
+    const rawTarget = extractTargetRank(user && user.rank)
+      || extractTargetRank(rawRoot && Array.isArray(rawRoot.team) && rawRoot.team[0] && rawRoot.team[0].role);
+    const parsedTargetRank = rawTarget ? Math.max(1, Math.min(totalAliveNow, rawTarget)) : null;
+
+    const explicitAboveCount = explicitAliveNPCs.filter(function (id) {
       const rm = map[id];
-      const u = (hashNum("S-" + id) % 10000) / 10000;
-      const skewed = Math.pow(u, 2.2);
-      const sc = Math.round(minScore + skewed * Math.max(0, fillerMaxScore - minScore));
-      rm.score = Math.max(minScore, Math.min(fillerMaxScore, sc));
-      rm.creditsNum = calcCredits(rm.score);
-      rm.sub = rm.creditsNum + " H.phần";
+      return rm.score > userScore || (rm.score === userScore && (rm.creditsNum || 0) >= userCredits);
+    }).length;
+
+    const aliveFillers = fillerIds.filter(function (id) { return map[id].alive; });
+    aliveFillers.sort(function (a, b) {
+      return (hashNum("S-" + b) % 10000) - (hashNum("S-" + a) % 10000);
     });
+
+    if (parsedTargetRank != null && userScore > 0) {
+      const desiredAbove = Math.max(explicitAboveCount, Math.min(totalAliveNow - 1, parsedTargetRank - 1));
+      const fillersAboveCount = Math.min(aliveFillers.length, Math.max(0, desiredAbove - explicitAboveCount));
+      const upperHi = Math.max(userScore, fillerMaxScore);
+      const lowerHi = userScore > minScore ? userScore - 1 : userScore;
+
+      aliveFillers.forEach(function (id, idx) {
+        const rm = map[id];
+        const u = (hashNum("S-" + id) % 10000) / 10000;
+        if (idx < fillersAboveCount) {
+          const ratio = fillersAboveCount > 1 ? 1 - (idx / (fillersAboveCount - 1)) : 0.5;
+          const sc = Math.round(userScore + Math.pow(ratio, 1.3) * Math.max(0, upperHi - userScore));
+          rm.score = Math.max(userScore, Math.min(upperHi, sc));
+          rm.creditsNum = Math.max(rm.score === userScore ? userCredits : 1, calcCredits(rm.score));
+          rm._pos = -1;
+        } else {
+          const skewed = Math.pow(u, 2.0);
+          const sc = Math.round(minScore + skewed * Math.max(0, lowerHi - minScore));
+          rm.score = Math.max(minScore, Math.min(lowerHi, sc));
+          rm.creditsNum = calcCredits(rm.score);
+          if (rm.score === userScore && rm.creditsNum > userCredits) rm.creditsNum = userCredits;
+          rm._pos = 1;
+        }
+        rm.sub = rm.creditsNum + " H.phần";
+      });
+    } else {
+      aliveFillers.forEach(function (id) {
+        const rm = map[id];
+        const u = (hashNum("S-" + id) % 10000) / 10000;
+        const skewed = Math.pow(u, 2.2);
+        const sc = Math.round(minScore + skewed * Math.max(0, fillerMaxScore - minScore));
+        rm.score = Math.max(minScore, Math.min(fillerMaxScore, sc));
+        rm.creditsNum = calcCredits(rm.score);
+        rm.sub = rm.creditsNum + " H.phần";
+      });
+    }
 
     // 5) Bảo toàn luật >= 2 NPC dẫn đầu nhưng không bao giờ vượt trần ceilingScore
     const list = order.map(function (id) { return map[id]; });
     const aboveOrTiedAtTop = list.filter(function (r) {
-      return !r.isUser && r.alive && (r.score > userScore || (r.score === userScore && userScore >= ceilingScore));
+      return !r.isUser && r.alive && (
+        r.score > userScore ||
+        (r.score === userScore && (r.creditsNum || 0) >= userCredits && r._pos !== 1)
+      );
     });
     if (aboveOrTiedAtTop.length < 2) {
       const needTop = 2 - aboveOrTiedAtTop.length;
@@ -315,21 +365,24 @@
       for (let k = 0; k < needTop && k < candidates.length; k++) {
         const bumped = Math.min(ceilingScore, Math.max(userScore, ceilingScore - k));
         candidates[k].score = bumped;
-        candidates[k].creditsNum = calcCredits(bumped);
+        candidates[k].creditsNum = Math.max(bumped === userScore ? userCredits : 1, calcCredits(bumped));
         candidates[k].sub = candidates[k].creditsNum + " H.phần";
+        candidates[k]._pos = -1;
       }
     }
 
-    const totalAliveNow = list.filter(function (r) { return r.alive; }).length;
-
-    // Sort: Sống trước -> Điểm cao xuống thấp -> Học phần cao xuống thấp -> Đồng điểm thì NPC trước -> ID phòng tăng dần
+    // Sort: Sống trước -> Điểm cao xuống thấp -> Học phần cao xuống thấp -> Đồng điểm tôn trọng trên/dưới User -> ID phòng tăng dần
     const ranked = list.slice().sort(function (a, b) {
       if (a.alive !== b.alive) return a.alive ? -1 : 1;
       if (b.score !== a.score) return b.score - a.score;
       const ca = a.creditsNum != null ? a.creditsNum : 0;
       const cb = b.creditsNum != null ? b.creditsNum : 0;
       if (cb !== ca) return cb - ca;
-      if (a.isUser !== b.isUser) return a.isUser ? 1 : -1;
+      if (a.isUser !== b.isUser) {
+        const other = a.isUser ? b : a;
+        if (other._pos === 1) return a.isUser ? -1 : 1;
+        return a.isUser ? 1 : -1;
+      }
       return String(a.id).localeCompare(String(b.id));
     });
 
@@ -337,6 +390,7 @@
     ranked.forEach(function (rm) {
       rm.rank = rm.alive ? rankNum++ : null;
     });
+
 
     return {
       list: list,
